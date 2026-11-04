@@ -1,0 +1,21 @@
+{
+  "id": "devin",
+  "name": "Devin",
+  "tier": "detected-only",
+  "detect": {
+    "paths": ["~/.config/devin"],
+    "binaries": ["devin"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [],
+  "readsShared": true,
+  "connect": {
+    "installUrl": "https://docs.devin.ai/desktop/cascade/skills",
+    "docsUrl": "https://docs.devin.ai/desktop/cascade/skills"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://docs.devin.ai/desktop/cascade/skills"
+  },
+  "notes": "BERTENTANGAN: docs Desktop menyebut ~/.config/devin/skills, docs CLI menyebut %APPDATA%\\devin\\skills. Deteksi memakai bentuk POSIX dari docs Desktop; belum ada Store managed sampai pertentangan ini teruji di mesin dengan Devin terpasang."
+}

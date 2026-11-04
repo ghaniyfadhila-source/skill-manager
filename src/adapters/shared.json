@@ -1,0 +1,38 @@
+{
+  "id": "shared",
+  "name": "Shared (.agents)",
+  "tier": "managed",
+  "detect": {
+    "paths": ["~/.agents"],
+    "binaries": [],
+    "versionArgs": []
+  },
+  "stores": [
+    {
+      "scope": "global",
+      "path": "~/.agents/skills",
+      "exclusive": false,
+      "members": [
+        "codex",
+        "gemini",
+        "cursor",
+        "copilot",
+        "amp",
+        "zed",
+        "roo",
+        "kilo",
+        "factory",
+        "dsh"
+      ]
+    }
+  ],
+  "readsShared": true,
+  "connect": {
+    "installUrl": "https://agentskills.io",
+    "docsUrl": "https://agentskills.io/specification"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://learn.chatgpt.com/docs/build-skills"
+  }
+}

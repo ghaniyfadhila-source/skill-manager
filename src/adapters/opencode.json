@@ -1,0 +1,26 @@
+{
+  "id": "opencode",
+  "name": "opencode",
+  "tier": "managed",
+  "detect": {
+    "paths": ["~/.config/opencode"],
+    "binaries": ["opencode"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [
+    {
+      "scope": "global",
+      "path": "~/.config/opencode/skills",
+      "exclusive": true
+    }
+  ],
+  "readsShared": true,
+  "connect": {
+    "installUrl": "https://opencode.ai/docs",
+    "docsUrl": "https://opencode.ai/docs/skills/"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://opencode.ai/docs/skills/"
+  }
+}

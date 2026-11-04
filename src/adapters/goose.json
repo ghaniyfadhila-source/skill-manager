@@ -1,0 +1,21 @@
+{
+  "id": "goose",
+  "name": "Goose",
+  "tier": "detected-only",
+  "detect": {
+    "paths": ["~/.config/goose"],
+    "binaries": ["goose"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [],
+  "readsShared": true,
+  "connect": {
+    "installUrl": "https://github.com/aaif-goose/goose",
+    "docsUrl": "https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://github.com/aaif-goose/goose/blob/main/documentation/docs/guides/context-engineering/using-skills.md"
+  },
+  "notes": "Detected-only (roadmap v0.2). Root kanonik Goose adalah ~/.agents/skills (Store shared); ~/.config/goose/skills bukan path kanonik di Windows, hanya dipakai untuk deteksi."
+}
