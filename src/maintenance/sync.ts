@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { adapterCapability, listStores, resolveTarget } from "../adapters/index.js";
 import type { Adapter } from "../adapters/manifest.js";
@@ -13,7 +14,7 @@ import type {
   TargetError,
   TargetResult,
 } from "../core/types.js";
-import { type PopulateTempDirectory, writeDirectoryAtomic } from "../fs/atomic.js";
+import { type PopulateTempDirectory, TEMP_PREFIX, writeDirectoryAtomic } from "../fs/atomic.js";
 import { guardStorePath, removeWithinStore } from "../fs/guard.js";
 import type { FileSystem, FsError } from "../fs/types.js";
 
@@ -182,7 +183,7 @@ function populateFrom(fs: FileSystem, source: string): PopulateTempDirectory {
   };
 }
 
-/** Kembalikan isi Store dari Library, lalu catat hash hasil salinan. */
+/** Kembalikan isi Store dari Library dengan pola backup-swap (spec §14). */
 async function restoreOne(
   fs: FileSystem,
   skill: Skill,
@@ -196,22 +197,46 @@ async function restoreOne(
   if (!guarded.ok) {
     throw fromFs(guarded.error);
   }
+  const target = guarded.value.path;
 
-  // Salinan drift dihapus lebih dulu; isi baru dibangun di direktori sementara
-  // dalam Store lalu di-rename, jadi kegagalan salin tidak menyisakan target.
-  if (await fs.exists(guarded.value.path)) {
-    const removed = await removeWithinStore(fs, store.path, guarded.value.path);
-    if (!removed.ok) {
-      throw fromFs(removed.error);
-    }
-  }
-
-  const written = await writeDirectoryAtomic(fs, guarded.value.path, populateFrom(fs, source));
+  // 1. Isi baru dibangun di staging DI DALAM Store; salinan lama belum disentuh.
+  const staging = path.join(store.path, `${TEMP_PREFIX}restore-${randomUUID()}`);
+  const written = await writeDirectoryAtomic(fs, staging, populateFrom(fs, source));
   if (!written.ok) {
     throw fromFs(written.error);
   }
 
-  const hash = await contentHash(fs, guarded.value.path);
+  // 2. Salinan lama dipindah ke backup. Rename direktori di dalam Store yang
+  //    sama atomik pada volume yang sama, jadi tidak ada jendela "target
+  //    hilang" selama penyalinan.
+  const backup = path.join(store.path, `${TEMP_PREFIX}backup-${randomUUID()}`);
+  const hadTarget = await fs.exists(target);
+  if (hadTarget) {
+    const moved = await fs.rename(target, backup);
+    if (!moved.ok) {
+      await removeWithinStore(fs, store.path, staging);
+      throw fromFs(moved.error);
+    }
+  }
+
+  // 3. staging -> target. Bila gagal, backup dikembalikan sehingga target
+  //    berisi isi lama seperti sebelum sinkron.
+  const swapped = await fs.rename(staging, target);
+  if (!swapped.ok) {
+    if (hadTarget) {
+      await fs.rename(backup, target);
+    }
+    await removeWithinStore(fs, store.path, staging);
+    throw fromFs(swapped.error);
+  }
+
+  // 4. Backup dibersihkan best-effort; sisa yang gagal dihapus (mis. crash)
+  //    memakai prefix yang sama sehingga `doctor` melaporkannya.
+  if (hadTarget) {
+    await removeWithinStore(fs, store.path, backup);
+  }
+
+  const hash = await contentHash(fs, target);
   if (!hash.ok) {
     throw fromFs(hash.error);
   }

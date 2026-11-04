@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { contentHash } from "../core/hash.js";
 import { loadState } from "../core/state.js";
 import { TEMP_PREFIX } from "../fs/atomic.js";
+import { MemoryFileSystem } from "../fs/memory.js";
+import type { FsResult } from "../fs/types.js";
+import { cleanTempDirs, runDoctor } from "./doctor.js";
 import { syncSkill } from "./sync.js";
 import {
   captureError,
@@ -12,6 +15,7 @@ import {
   HOME,
   installedPath,
   LIBRARY,
+  mkdirp,
   ok,
   SKILL_MD,
   SKILL_NAME,
@@ -147,4 +151,84 @@ describe("syncSkill", () => {
       setup.skill.contentHash,
     );
   });
+
+  it("restore sukses tidak meninggalkan staging maupun backup", async () => {
+    const setup = await fixture();
+    await setupSkill(setup, ["claude-code/global"]);
+    ok(await setup.fs.write(path.join(installedPath("claude-code"), "SKILL.md"), USER_EDIT));
+
+    await sync(setup, { action: "restore", targets: ["claude-code/global"], confirm: true });
+
+    expect(ok(await setup.fs.readdir(storePath("claude-code"))).map((entry) => entry.name)).toEqual(
+      [SKILL_NAME],
+    );
+  });
+
+  it("restore mengembalikan isi lama bila rename staging gagal (tanpa kehilangan skill)", async () => {
+    const failingFs = new SwapFailFs();
+    const setup = await fixture({ fs: failingFs });
+    await setupSkill(setup, ["claude-code/global"]);
+    ok(await failingFs.write(path.join(installedPath("claude-code"), "SKILL.md"), USER_EDIT));
+    failingFs.failSwap = true;
+
+    const results = await sync(setup, {
+      action: "restore",
+      targets: ["claude-code/global"],
+      confirm: true,
+    });
+
+    expect(results[0]).toMatchObject({ ok: false, error: { code: "io_error" } });
+    expect(ok(await setup.fs.readText(path.join(installedPath("claude-code"), "SKILL.md")))).toBe(
+      USER_EDIT,
+    );
+    expect(await tempNames(setup, "claude-code")).toEqual([]);
+    const { state } = await loadState(setup.fs, DATA_ROOT);
+    expect(state.installations[0]?.installedHash).toBe(setup.skill.contentHash);
+  });
+
+  it("sisa crash dilaporkan doctor dan restore berikutnya tetap bekerja", async () => {
+    const setup = await fixture();
+    await setupSkill(setup, ["claude-code/global"]);
+    const target = installedPath("claude-code");
+    const backup = path.join(storePath("claude-code"), `${TEMP_PREFIX}backup-crash`);
+    const staging = path.join(storePath("claude-code"), `${TEMP_PREFIX}restore-crash`);
+    ok(await setup.fs.rename(target, backup));
+    await mkdirp(setup.fs, staging);
+    ok(await setup.fs.write(path.join(staging, "SKILL.md"), "# belum selesai\n"));
+
+    const crashed = await runDoctor(setup.fs, DATA_ROOT, { adapters: setup.adapters, home: HOME });
+    expect(crashed.tempDirs).toEqual([backup, staging]);
+    expect(crashed.missing.map((entry) => entry.path)).toEqual([target]);
+
+    const results = await sync(setup, {
+      action: "restore",
+      targets: ["claude-code/global"],
+      confirm: true,
+    });
+    expect(results[0]).toMatchObject({ ok: true });
+    expect(ok(await contentHash(setup.fs, target))).toBe(setup.skill.contentHash);
+
+    const after = await runDoctor(setup.fs, DATA_ROOT, { adapters: setup.adapters, home: HOME });
+    expect(after.missing).toEqual([]);
+    expect(after.tempDirs).toEqual([backup, staging]);
+
+    const removed = await cleanTempDirs(setup.fs, DATA_ROOT, {
+      adapters: setup.adapters,
+      home: HOME,
+    });
+    expect(removed).toEqual([backup, staging]);
+    expect(await setup.fs.exists(target)).toBe(true);
+  });
 });
+
+/** Simulasi kegagalan rename staging -> target. */
+class SwapFailFs extends MemoryFileSystem {
+  failSwap = false;
+
+  override async rename(from: string, to: string): Promise<FsResult<void>> {
+    if (this.failSwap && path.basename(from).startsWith(`${TEMP_PREFIX}restore-`)) {
+      return { ok: false, error: { code: "io_error", path: to, message: "ditolak (simulasi)" } };
+    }
+    return super.rename(from, to);
+  }
+}
