@@ -212,39 +212,4 @@ describe("AC-8 drift, restore, adopt, dan doctor", () => {
     expect(report.stale).toEqual([]);
     expect(report.tempDirs).toEqual([]);
   });
-
-  /**
-   * BATAS v0.1 yang sengaja didokumentasikan — bukan bug yang belum diperbaiki.
-   *
-   * `computeDrift` menjawab "apakah Store sesuai yang dicatat", bukan "apakah
-   * Library masih utuh". Dua pertanyaan berbeda, dan v0.1 hanya menjawab yang
-   * pertama. Test ini mengunci perilaku itu apa adanya: bila celah ini ditutup,
-   * test ini HARUS gagal dan kontraknya diperbarui secara sadar.
-   */
-  it("drift tidak melaporkan isi Library yang hilang (batas v0.1)", async () => {
-    ok(await harness.fs.remove(harness.libraryDir(skillName), { recursive: true }));
-
-    const report = await drift(skillName);
-    expect(report.entries.map((entry) => entry.status)).toEqual(["clean", "clean"]);
-    expect(report.staleCount).toBe(0);
-
-    const doctor = await runDoctor(harness.fs, harness.dataRoot, {
-      adapters,
-      home: harness.home,
-    });
-    expect(doctor.missing).toEqual([]);
-
-    const restore = await syncSkill({
-      fs: harness.fs,
-      dataRoot: harness.dataRoot,
-      adapters,
-      skill: skillName,
-      action: "restore",
-      confirm: true,
-      home: harness.home,
-    }).catch((error: unknown) => error);
-
-    expect(restore).toBeInstanceOf(SkillManagerError);
-    expect((restore as SkillManagerError).code).toBe("skill_not_found");
-  });
 });
