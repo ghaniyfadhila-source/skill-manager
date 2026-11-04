@@ -5,6 +5,7 @@
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { Adapter } from "../../src/adapters/index.js";
+import { adapterCapability } from "../../src/adapters/manifest.js";
 import { SkillManagerError } from "../../src/core/errors.js";
 import { contentHash } from "../../src/core/hash.js";
 import { loadState } from "../../src/core/state.js";
@@ -72,23 +73,35 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
     });
   }
 
-  it("AC-4 memasang ke dua Target: hash Store sama dengan hash Library untuk keduanya", async () => {
-    const results = await install(["claude-code/global", "opencode/global"]);
-
-    expect(results.map((result) => [result.targetId, result.ok])).toEqual([
-      ["claude-code/global", true],
-      ["opencode/global", true],
+  it("AC-4 memasang ke semua Target managed: hash tiap Store sama dengan hash Library", async () => {
+    // Diturunkan dari katalog adapter supaya Target baru ikut teruji otomatis.
+    const managed = adapters.filter(
+      (adapter) => adapterCapability(adapter) === "managed" && adapter.stores.length > 0,
+    );
+    const targets = managed.map((adapter) => `${adapter.id}/global`);
+    expect(targets).toEqual([
+      "claude-code/global",
+      "opencode/global",
+      "antigravity/global",
+      "shared/global",
     ]);
 
+    // Grup shared ikut terpasang, jadi persetujuannya diberikan di awal.
+    const results = await install(targets, true);
+    expect(results.map((result) => [result.targetId, result.ok])).toEqual(
+      targets.map((targetId) => [targetId, true]),
+    );
+
     const libraryTree = await treeSnapshot(harness.fs, harness.libraryDir(skill.name));
-    for (const storeDir of [CLAUDE_STORE, OPENCODE_STORE]) {
-      const storePath = harness.storeSkillPath(storeDir, skill.name);
+    const storeIds = managed.flatMap((adapter) => adapter.stores.map((store) => store.path));
+    for (const storeId of storeIds) {
+      const storePath = harness.storeSkillPath(storeId, skill.name);
       expect(await treeSnapshot(harness.fs, storePath)).toEqual(libraryTree);
       expect(ok(await contentHash(harness.fs, storePath))).toBe(skill.contentHash);
     }
 
     const { state } = await loadState(harness.fs, harness.dataRoot);
-    expect(state.installations).toHaveLength(2);
+    expect(state.installations).toHaveLength(targets.length);
     for (const installation of state.installations) {
       expect(installation).toMatchObject({
         skillId: skill.id,
@@ -96,9 +109,7 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
         installedHash: skill.contentHash,
       });
     }
-    expect(state.installations.map((entry) => entry.storeId).sort()).toEqual(
-      [CLAUDE_STORE, OPENCODE_STORE].sort(),
-    );
+    expect(state.installations.map((entry) => entry.storeId).sort()).toEqual([...storeIds].sort());
   });
 
   it("AC-5 memasang ke [CC] dan opencode saja tidak membuat Store shared", async () => {
