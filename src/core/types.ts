@@ -138,6 +138,27 @@ export interface Settings {
   readonly sharedGroupMembers: readonly string[];
 }
 
+/** Package manager yang dipakai untuk dependensi skill (spec §10.6). */
+export type DepKind = "npm" | "uv";
+
+/**
+ * Satu perintah dependensi yang ditampilkan sebelum eksekusi (spec §10.6 poin 2,
+ * kontrak §7 `POST /api/deps/plan`). Plan tidak pernah dijalankan otomatis.
+ */
+export interface DepCommand {
+  readonly kind: DepKind;
+  /** Binary package manager: `"npm"` atau `"uv"`. */
+  readonly command: string;
+  /** Argumen persis (tanpa shell) yang diteruskan ke ProcessRunner. */
+  readonly args: readonly string[];
+  /** Direktori kerja terisolasi: `<dataRoot>/deps/<skillId>`. */
+  readonly cwd: string;
+  /** Alasan yang bisa ditampilkan ke user, mis. isi package.json. */
+  readonly reason: string;
+  /** Nama dependensi dari manifest, untuk ditampilkan (AC-9). */
+  readonly dependencies: readonly string[];
+}
+
 /** Isi `<dataRoot>/state.json`; disk tetap sumber kebenaran, state hanya indeks. */
 export interface StateFile {
   readonly schemaVersion: typeof STATE_SCHEMA_VERSION;
