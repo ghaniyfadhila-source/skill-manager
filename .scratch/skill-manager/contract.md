@@ -99,6 +99,7 @@ Semua respons galat: `{ error: { code, message, details? } }` + status HTTP yang
 | DELETE | `/api/installations` | `{ skill, targets, force?: boolean, acknowledgeShared?: boolean }` | `{ results: TargetResult[] }` · `409` bila drift atau shared belum diakui |
 | POST | `/api/sync` | `{ skill, action: "restore"\|"adopt" }` | `{ skill }` |
 | GET | `/api/doctor` | — | `{ missing, unmanaged, tempDirs, stale }` |
+| POST | `/api/doctor/clean-temp` | — | `{ removed: string[] }` — hanya menghapus direktori berawalan `.skill-manager-tmp-` |
 | POST | `/api/deps/plan` | `{ skill }` | `{ commands: DepCommand[] }` |
 | POST | `/api/deps/run` | `{ skill, allowScripts?: boolean }` | `{ ok, output }` |
 | GET | `/api/connect/:harnessId` | — | `{ url }` — **server tidak menjalankan apa pun** |
