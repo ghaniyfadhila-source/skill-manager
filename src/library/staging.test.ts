@@ -1,4 +1,5 @@
 import path from "node:path";
+import { crc32 } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { MemoryFileSystem } from "../fs/memory.js";
 import { FakeProcessRunner } from "../fs/process-fake.js";
@@ -118,6 +119,114 @@ describe("stageFromGit", () => {
       /clone gagal/,
     );
 
+    const staging = await fs.readdir(path.join(DATA_ROOT, STAGING_DIR_NAME));
+    expect(staging.ok ? staging.value.length : 0).toBe(0);
+  });
+});
+describe("stageFromZip", () => {
+  /** Bangun zip stored (tanpa kompresi) agar test tidak butuh dependensi. */
+  function storedZip(files: readonly { name: string; content: string }[]): Uint8Array {
+    const encoder = new TextEncoder();
+    const locals: Uint8Array[] = [];
+    const centrals: Uint8Array[] = [];
+    let offset = 0;
+
+    for (const file of files) {
+      const name = encoder.encode(file.name);
+      const data = encoder.encode(file.content);
+      const crc = crc32(data);
+
+      const local = new Uint8Array(30 + name.length + data.length);
+      const localView = new DataView(local.buffer);
+      localView.setUint32(0, 0x04034b50, true);
+      localView.setUint16(4, 20, true);
+      localView.setUint16(6, 0, true);
+      localView.setUint16(8, 0, true);
+      localView.setUint32(14, crc, true);
+      localView.setUint32(18, data.length, true);
+      localView.setUint32(22, data.length, true);
+      localView.setUint16(26, name.length, true);
+      local.set(name, 30);
+      local.set(data, 30 + name.length);
+      locals.push(local);
+
+      const central = new Uint8Array(46 + name.length);
+      const centralView = new DataView(central.buffer);
+      centralView.setUint32(0, 0x02014b50, true);
+      centralView.setUint16(4, 20, true);
+      centralView.setUint16(6, 20, true);
+      centralView.setUint32(16, crc, true);
+      centralView.setUint32(20, data.length, true);
+      centralView.setUint32(24, data.length, true);
+      centralView.setUint16(28, name.length, true);
+      centralView.setUint32(42, offset, true);
+      central.set(name, 46);
+      centrals.push(central);
+
+      offset += local.length;
+    }
+
+    const centralSize = centrals.reduce((total, part) => total + part.length, 0);
+    const eocd = new Uint8Array(22);
+    const eocdView = new DataView(eocd.buffer);
+    eocdView.setUint32(0, 0x06054b50, true);
+    eocdView.setUint16(8, files.length, true);
+    eocdView.setUint16(10, files.length, true);
+    eocdView.setUint32(12, centralSize, true);
+    eocdView.setUint32(16, offset, true);
+
+    const parts = [...locals, ...centrals, eocd];
+    const total = parts.reduce((sum, part) => sum + part.length, 0);
+    const archive = new Uint8Array(total);
+    let cursor = 0;
+    for (const part of parts) {
+      archive.set(part, cursor);
+      cursor += part.length;
+    }
+    return archive;
+  }
+
+  async function withZip(): Promise<MemoryFileSystem> {
+    const fs = await seeded();
+    const archive = storedZip([{ name: "SKILL.md", content: SKILL_MD }]);
+    await mkdirp(fs, "/arsip");
+    const written = await fs.write("/arsip/demo.zip", archive);
+    expect(written.ok).toBe(true);
+    return fs;
+  }
+
+  it("mengekstrak zip ke staging lalu pratinjau tanpa mengimpor", async () => {
+    const fs = await withZip();
+    const staged = await stageFromZip(fs, DATA_ROOT, "/arsip/demo.zip", options);
+
+    expect(staged.suggestedName).toBe("demo");
+    expect(staged.provenance).toEqual({ type: "zip", path: path.resolve("/arsip/demo.zip") });
+    expect(staged.inspect.files.map((node) => node.name)).toContain("SKILL.md");
+
+    // Pratinjau tidak boleh menyentuh Library.
+    const library = await fs.readdir(path.join(DATA_ROOT, "library"));
+    expect(library.ok).toBe(false);
+  });
+
+  it("impor dari staging zip memakai provenance zip", async () => {
+    const fs = await withZip();
+    const staged = await stageFromZip(fs, DATA_ROOT, "/arsip/demo.zip", options);
+    const result = await importStaged(fs, DATA_ROOT, staged.stagingId, { now: fixedNow });
+
+    expect(result.skill.source).toEqual({ type: "zip", path: path.resolve("/arsip/demo.zip") });
+    const staging = await fs.readdir(path.join(DATA_ROOT, STAGING_DIR_NAME));
+    expect(staging.ok ? staging.value.length : 0).toBe(0);
+  });
+
+  it("menolak zip dengan entri yang keluar folder tujuan", async () => {
+    const fs = await seeded();
+    const archive = storedZip([{ name: "../keluar/SKILL.md", content: SKILL_MD }]);
+    await mkdirp(fs, "/arsip");
+    expect((await fs.write("/arsip/jahat.zip", archive)).ok).toBe(true);
+
+    await expect(stageFromZip(fs, DATA_ROOT, "/arsip/jahat.zip", options)).rejects.toThrow(
+      /keluar folder tujuan|Impor ditolak/,
+    );
     const staging = await fs.readdir(path.join(DATA_ROOT, STAGING_DIR_NAME));
     expect(staging.ok ? staging.value.length : 0).toBe(0);
   });
