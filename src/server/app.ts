@@ -1,17 +1,44 @@
 import { timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { extname, join } from "node:path";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { type Context, Hono } from "hono";
 import { getCookie, setCookie } from "hono/cookie";
 import packageJson from "../../package.json" with { type: "json" };
 import { SkillManagerError } from "../core/errors.js";
+import { resolveDataRoot } from "../core/paths.js";
+import { NodeFileSystem } from "../fs/node.js";
+import { NodeProcessRunner } from "../fs/process-node.js";
+import { registerConnectRoutes } from "./routes/connect.js";
+import type { ServerDeps } from "./routes/context.js";
+import { registerDepsRoutes } from "./routes/deps.js";
+import { registerDoctorRoutes } from "./routes/doctor.js";
+import { registerHarnessRoutes } from "./routes/harnesses.js";
+import { registerInstallationRoutes } from "./routes/installations.js";
+import { registerSkillRoutes } from "./routes/skills.js";
+import { registerSyncRoutes } from "./routes/sync.js";
 
 export interface AppOptions {
   /** Token sesi yang dibuat sekali per proses server. */
   token: string;
   /** Direktori hasil build UI (dist/web). */
   webRoot: string;
+  /**
+   * Dependensi domain. Produksi memakai implementasi Node + data root asli;
+   * test menyuntikkan MemoryFileSystem/FakeProcessRunner dan dataRoot sementara.
+   */
+  deps?: ServerDeps;
+}
+
+/** Dependensi produksi. Dibuat lazy di dalam createApp agar tidak ada I/O saat impor. */
+function defaultServerDeps(): ServerDeps {
+  return {
+    fs: new NodeFileSystem(),
+    runner: new NodeProcessRunner(),
+    dataRoot: resolveDataRoot(),
+    home: homedir(),
+  };
 }
 
 export const SESSION_COOKIE = "sm_session";
@@ -30,8 +57,38 @@ const STATUS_BY_CODE: Record<string, ErrorStatus> = {
   unauthorized: 401,
   forbidden: 403,
   not_found: 404,
+  source_not_found: 404,
+  skill_not_found: 404,
+  installation_not_found: 404,
+  staging_not_found: 404,
+  harness_not_found: 404,
+  web_not_built: 404,
   conflict: 409,
+  install_conflict: 409,
+  name_conflict: 409,
+  drift_detected: 409,
+  adopt_conflict: 409,
+  shared_confirmation_required: 409,
+  confirmation_required: 409,
+  already_exists: 409,
+  not_empty: 409,
+  unsupported_version: 500,
+  state_unsupported_version: 500,
+  state_write_failed: 500,
+  import_failed: 500,
+  io_error: 500,
+  permission_denied: 500,
+  process_failed: 500,
+  dependency_run_failed: 500,
 };
+
+/**
+ * Status HTTP untuk kode galat domain (kontrak §7). Kode di luar tabel — termasuk
+ * seluruh `invalid_*`/`unsafe_*`/`source_*` — adalah masukan salah, jadi 400.
+ */
+export function statusForCode(code: string): ErrorStatus {
+  return STATUS_BY_CODE[code] ?? 400;
+}
 
 function errorBody(code: string, message: string, details?: unknown): ErrorBody {
   if (details === undefined) {
@@ -141,14 +198,14 @@ function isSpaNavigation(c: Context): boolean {
  */
 export function handleAppError(error: unknown, c: Context): Response {
   if (error instanceof SkillManagerError) {
-    const status = STATUS_BY_CODE[error.code] ?? 400;
-    return c.json(errorBody(error.code, error.message, error.details), status);
+    return c.json(errorBody(error.code, error.message, error.details), statusForCode(error.code));
   }
   return c.json(errorBody("internal_error", "Terjadi kesalahan internal."), 500);
 }
 
 export function createApp(options: AppOptions): Hono {
   const app = new Hono();
+  const deps = options.deps ?? defaultServerDeps();
 
   app.use("*", async (c, next) => {
     const host = checkHost(c.req.header("host"));
@@ -191,6 +248,14 @@ export function createApp(options: AppOptions): Hono {
   });
 
   app.get("/api/health", (c) => c.json({ ok: true, version: APP_VERSION }));
+
+  registerHarnessRoutes(app, deps);
+  registerSkillRoutes(app, deps);
+  registerInstallationRoutes(app, deps);
+  registerSyncRoutes(app, deps);
+  registerDoctorRoutes(app, deps);
+  registerDepsRoutes(app, deps);
+  registerConnectRoutes(app, deps);
 
   app.use("*", serveStatic({ root: options.webRoot }));
 
