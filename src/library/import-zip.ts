@@ -430,6 +430,41 @@ function tempDirectory(options: ImportZipOptions): string {
 }
 
 /**
+ * Ekstrak arsip zip ke `destination` tanpa mengimpor apa pun.
+ *
+ * Seluruh entri divalidasi lebih dulu, baru ditulis. Dipisahkan dari
+ * `importZipSkill` agar pratinjau sumber bisa berhenti di sini (spec §13).
+ * Pemanggil bertanggung jawab membersihkan `destination`.
+ */
+export async function extractZipTo(
+  fs: FileSystem,
+  zipPath: string,
+  destination: string,
+): Promise<void> {
+  const resolved = path.resolve(zipPath);
+  const archive = await fs.read(resolved);
+  if (!archive.ok) {
+    throw zipError(
+      "source_unreadable",
+      `Arsip zip tidak bisa dibaca: ${resolved} (${archive.error.code}).`,
+      archive.error,
+    );
+  }
+
+  // Validasi penuh sebelum satu byte pun ditulis ke disk.
+  const entries = parseZipEntries(archive.value);
+  assertLimits(archive.value.length, entries);
+
+  const created = await fs.mkdir(destination, { recursive: true });
+  if (!created.ok) {
+    throw extractError(created.error.message, created.error);
+  }
+  for (const entry of entries) {
+    await writeEntry(fs, archive.value, entry, destination);
+  }
+}
+
+/**
  * Impor skill dari arsip zip ke Library. Direktori sementara selalu dibersihkan,
  * baik impor berhasil maupun gagal (sisa bila proses mati dibersihkan doctor).
  */
@@ -439,28 +474,9 @@ export async function importZipSkill(
   options: ImportZipOptions,
 ): Promise<ImportResult> {
   const zipPath = path.resolve(options.zipPath);
-  const archive = await fs.read(zipPath);
-  if (!archive.ok) {
-    throw zipError(
-      "source_unreadable",
-      `Arsip zip tidak bisa dibaca: ${zipPath} (${archive.error.code}).`,
-      archive.error,
-    );
-  }
-
-  // Validasi penuh sebelum satu byte pun ditulis ke disk.
-  const entries = parseZipEntries(archive.value);
-  assertLimits(archive.value.length, entries);
-
   const tempDir = tempDirectory(options);
   try {
-    const created = await fs.mkdir(tempDir, { recursive: true });
-    if (!created.ok) {
-      throw extractError(created.error.message, created.error);
-    }
-    for (const entry of entries) {
-      await writeEntry(fs, archive.value, entry, tempDir);
-    }
+    await extractZipTo(fs, zipPath, tempDir);
 
     const skillDir = await findSkillDirectory(fs, tempDir);
     const name = await readSkillName(fs, skillDir);

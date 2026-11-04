@@ -190,6 +190,63 @@ async function checkoutCommit(runner: ProcessRunner, tempDir: string, sha: strin
   }
 }
 
+/** Hasil clone: URL/ref/commit yang benar-benar dipakai. */
+export interface ClonedGitSource {
+  readonly url: string;
+  readonly ref: string;
+  readonly commit: string;
+}
+
+/**
+ * Clone dangkal ke `destination` tanpa mengimpor apa pun.
+ *
+ * Dipisahkan dari `importGitSkill` agar pratinjau sumber dari jaringan bisa
+ * berhenti di sini (spec §13: pohon file dan penanda risiko ditampilkan sebelum
+ * konfirmasi). Pemanggil bertanggung jawab membersihkan `destination`.
+ */
+export async function cloneGitTo(
+  runner: ProcessRunner,
+  options: Pick<ImportGitOptions, "url" | "ref">,
+  destination: string,
+): Promise<ClonedGitSource> {
+  const url = validateGitUrl(options.url);
+  const ref = resolveRef(options.ref);
+
+  const clone = await runGit(
+    runner,
+    cloneArgs(url, ref, destination),
+    undefined,
+    GIT_CLONE_TIMEOUT_MS,
+  );
+  if (clone.timedOut) {
+    throw gitError(
+      "git_timeout",
+      `git clone melewati batas waktu ${GIT_CLONE_TIMEOUT_MS} ms. Periksa jaringan lalu ulangi.`,
+    );
+  }
+  if (clone.code !== 0) {
+    throw gitError(
+      "git_clone_failed",
+      `git clone gagal (exit ${clone.code ?? "null"}): ${stderrExcerpt(clone)}.`,
+    );
+  }
+
+  if (ref !== "HEAD" && SHA_PATTERN.test(ref)) {
+    await checkoutCommit(runner, destination, ref);
+  }
+
+  const resolved = await runGit(runner, ["rev-parse", "HEAD"], destination, GIT_COMMAND_TIMEOUT_MS);
+  const commit = resolved.stdout.trim();
+  if (resolved.code !== 0 || !COMMIT_PATTERN.test(commit)) {
+    throw gitError(
+      "git_clone_failed",
+      `Commit HEAD tidak bisa dibaca dari hasil clone: ${stderrExcerpt(resolved)}.`,
+    );
+  }
+
+  return { url, ref, commit };
+}
+
 /**
  * Impor skill dari URL git ke Library. Direktori sementara selalu dibersihkan,
  * baik impor berhasil maupun gagal (sisa bila proses mati dibersihkan doctor).
@@ -200,46 +257,18 @@ export async function importGitSkill(
   runner: ProcessRunner,
   options: ImportGitOptions,
 ): Promise<ImportResult> {
-  const url = validateGitUrl(options.url);
-  const ref = resolveRef(options.ref);
   const tempDir = tempDirectory(options);
 
   try {
-    const clone = await runGit(
-      runner,
-      cloneArgs(url, ref, tempDir),
-      undefined,
-      GIT_CLONE_TIMEOUT_MS,
-    );
-    if (clone.timedOut) {
-      throw gitError(
-        "git_timeout",
-        `git clone melewati batas waktu ${GIT_CLONE_TIMEOUT_MS} ms. Periksa jaringan lalu ulangi.`,
-      );
-    }
-    if (clone.code !== 0) {
-      throw gitError(
-        "git_clone_failed",
-        `git clone gagal (exit ${clone.code ?? "null"}): ${stderrExcerpt(clone)}.`,
-      );
-    }
-
-    if (ref !== "HEAD" && SHA_PATTERN.test(ref)) {
-      await checkoutCommit(runner, tempDir, ref);
-    }
-
-    const resolved = await runGit(runner, ["rev-parse", "HEAD"], tempDir, GIT_COMMAND_TIMEOUT_MS);
-    const commit = resolved.stdout.trim();
-    if (resolved.code !== 0 || !COMMIT_PATTERN.test(commit)) {
-      throw gitError(
-        "git_clone_failed",
-        `Commit HEAD tidak bisa dibaca dari hasil clone: ${stderrExcerpt(resolved)}.`,
-      );
-    }
-
+    const cloned = await cloneGitTo(runner, options, tempDir);
     const skillDir = await findSkillDirectory(fs, tempDir);
     const name = await readSkillName(fs, skillDir);
-    const provenance: SourceInfo = { type: "git", url, ref, commit };
+    const provenance: SourceInfo = {
+      type: "git",
+      url: cloned.url,
+      ref: cloned.ref,
+      commit: cloned.commit,
+    };
 
     return await importFromDirectory(fs, dataRoot, {
       sourceDir: skillDir,
