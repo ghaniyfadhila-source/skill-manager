@@ -118,6 +118,23 @@ export interface Installation {
   readonly installedAt: string;
 }
 
+/** Galat satu Target dalam operasi multi-Target (spec §14). */
+export interface TargetError {
+  readonly code: string;
+  readonly message: string;
+  readonly details?: unknown;
+}
+
+/** Hasil pasang/cabut untuk satu Target; urutan mengikuti permintaan. */
+export interface TargetResult {
+  readonly targetId: string;
+  readonly ok: boolean;
+  /** Terisi bila `ok`; Installation yang tercatat di state. */
+  readonly installation?: Installation;
+  /** Terisi bila `!ok`; kode stabil untuk CLI/HTTP. */
+  readonly error?: TargetError;
+}
+
 /** Status drift satu Installation terhadap Library (spec §10.5). */
 export type DriftStatus = "clean" | "modified" | "missing" | "unmanaged";
 
