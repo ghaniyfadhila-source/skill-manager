@@ -1,5 +1,8 @@
 allowBuilds:
   esbuild: true
+# Kebijakan supply-chain: paket harus berumur minimal 24 jam sebelum dipakai.
+# Pengecualian di bawah ini dicatat otomatis oleh pnpm saat resolusi.
+minimumReleaseAge: 1440
 minimumReleaseAgeExclude:
   - "@biomejs/biome@2.6.5"
   - "@biomejs/cli-android-arm64@2.6.5"

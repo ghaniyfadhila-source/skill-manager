@@ -11,7 +11,10 @@ export default defineConfig({
   outDir: "dist",
   clean: true,
   splitting: false,
-  sourcemap: true,
+  // Manifest adapter adalah modul JSON (kontrak §8a): esbuild menyisipkan
+  // isinya ke bundel, jadi tidak ada file runtime yang dibaca relatif ke cwd.
+  loader: { ".json": "json" },
+  sourcemap: false,
   dts: false,
   treeshake: true,
 });
