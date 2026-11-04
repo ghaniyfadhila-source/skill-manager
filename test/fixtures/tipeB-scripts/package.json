@@ -1,0 +1,12 @@
+{
+  "name": "tipeB-scripts",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Fixture skill tipe B: dependensi npm minimal.",
+  "dependencies": {
+    "kleur": "^4.1.5"
+  },
+  "devDependencies": {
+    "picocolors": "^1.1.1"
+  }
+}
