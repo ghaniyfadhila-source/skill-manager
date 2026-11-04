@@ -96,7 +96,7 @@ Semua respons galat: `{ error: { code, message, details? } }` + status HTTP yang
 | POST | `/api/skills/import` | `{ stagingId }` atau `{ type:"folder", path }` | `201 { skill }` · `409` nama bentrok |
 | GET | `/api/installations` | — | `{ installations: InstallationView[] }` |
 | POST | `/api/installations` | `{ skill, targets: string[], acknowledgeShared?: boolean }` | `{ results: TargetResult[] }` · `409` bila shared belum diakui |
-| DELETE | `/api/installations` | `{ skill, targets, force?: boolean }` | `{ results: TargetResult[] }` · `409` bila drift |
+| DELETE | `/api/installations` | `{ skill, targets, force?: boolean, acknowledgeShared?: boolean }` | `{ results: TargetResult[] }` · `409` bila drift atau shared belum diakui |
 | POST | `/api/sync` | `{ skill, action: "restore"\|"adopt" }` | `{ skill }` |
 | GET | `/api/doctor` | — | `{ missing, unmanaged, tempDirs, stale }` |
 | POST | `/api/deps/plan` | `{ skill }` | `{ commands: DepCommand[] }` |
