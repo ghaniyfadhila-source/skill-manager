@@ -75,9 +75,10 @@ Bisa dioverride lewat env `SKILL_MANAGER_DATA_ROOT` (wajib untuk test).
 - Token acak 32 byte hex per proses.
 - `GET /auth?token=<token>` → set cookie `sm_session` (httpOnly, SameSite=Strict, Path=/) → `302` ke `/` tanpa token di URL.
 - Semua route lain: tanpa cookie valid → `401` JSON `{ error: { code: "unauthorized" } }`.
-- Header `Host` bukan `127.0.0.1[:port]`/`localhost[:port]` → `403`.
+- Header `Host` bukan loopback (`127.0.0.1[:port]`, `localhost[:port]`, `[::1][:port]`) → `403`. Host yang tidak bisa diparse (kosong/malformed) boleh dijawab `400` oleh adapter HTTP; itu tetap penolakan, bukan bypass.
 - `GET /api/health` → `{ ok: true, version }`.
-- Static UI disajikan dari `dist/web`; SPA fallback ke `index.html`.
+- Static UI disajikan dari `dist/web`; SPA fallback ke `index.html` **hanya untuk navigasi** (Accept memuat `text/html`, tanpa ekstensi file). Aset yang hilang dan path `/api/*` yang tidak dikenal → `404` JSON.
+- Semua route mendaftarkan handler galat global (`app.onError`) yang mengembalikan `{ error: { code, message } }`, termasuk `404` (`app.notFound`). Tidak pernah membalas teks polos.
 
 ## 7. API JSON v1
 
@@ -108,6 +109,12 @@ Tipe bersama didefinisikan di `src/core/types.ts` (ticket 02) dan diimpor semua 
 
 `skill-manager detect|add|list|install|uninstall|sync|doctor|serve` + `--json` di semua perintah.
 CLI memanggil `core` langsung, **bukan** lewat HTTP. Exit code `1` untuk operasi yang ditolak.
+
+## 8a. Packaging
+
+- Adapter manifest (`src/adapters/*.json`) diimpor sebagai modul dan **dibundel** oleh tsup ke `dist`. Tidak boleh ada file runtime yang dibaca relatif terhadap cwd saat terpasang.
+- `prepack` menjalankan `pnpm run build` agar paket yang dipublish tidak pernah berisi `dist` basi.
+- `react`/`react-dom` ada di `devDependencies` (dibundel Vite), bukan `dependencies`.
 
 ## 9. Testing
 
