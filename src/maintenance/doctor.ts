@@ -1,6 +1,8 @@
 import path from "node:path";
 import { listStores } from "../adapters/index.js";
 import type { Adapter } from "../adapters/manifest.js";
+import { libraryRoot } from "../core/paths.js";
+import { loadState } from "../core/state.js";
 import { TEMP_PREFIX } from "../fs/atomic.js";
 import { removeWithinStore } from "../fs/guard.js";
 import type { FileSystem } from "../fs/types.js";
@@ -22,6 +24,23 @@ export interface DoctorReport {
   readonly tempDirs: readonly string[];
   /** Installation yang hash Store-nya berbeda dari hash Library saat ini. */
   readonly stale: readonly DriftEntry[];
+  /**
+   * Skill yang tercatat di state tetapi foldernya sudah tidak ada di Library.
+   *
+   * `missing` hanya melihat Store, jadi tanpa ini Library yang hilang tidak
+   * pernah dilaporkan padahal setiap pemasangan ulang akan gagal. Isi Library
+   * tidak bisa dipulihkan dari Store (Store adalah salinan, bukan sumber), jadi
+   * laporan ini murni pemberitahuan.
+   */
+  readonly libraryMissing: readonly LibraryMissingEntry[];
+}
+
+/** Satu entri Library yang foldernya hilang. */
+export interface LibraryMissingEntry {
+  readonly skillId: string;
+  readonly name: string;
+  /** Path folder Library yang seharusnya ada. */
+  readonly path: string;
 }
 
 /** Sisa direktori sementara di setiap Store; hanya membaca. */
@@ -49,6 +68,27 @@ async function tempDirectories(
 }
 
 /**
+ * Skill di state yang foldernya sudah tidak ada di Library. Diperiksa terpisah
+ * dari drift karena drift membandingkan Store dengan `contentHash` yang tercatat,
+ * bukan dengan isi Library yang sebenarnya.
+ */
+async function missingLibraryEntries(
+  fs: FileSystem,
+  dataRoot: string,
+): Promise<LibraryMissingEntry[]> {
+  const { state } = await loadState(fs, dataRoot);
+  const root = libraryRoot(dataRoot);
+  const found: LibraryMissingEntry[] = [];
+  for (const skill of state.library) {
+    const dir = path.join(root, skill.dirName);
+    const stat = await fs.stat(dir);
+    if (!stat.ok || stat.value.kind !== "directory") {
+      found.push({ skillId: skill.id, name: skill.name, path: dir });
+    }
+  }
+  return found;
+}
+/**
  * Periksa kesehatan Library/Store (spec §10.7, AC-12). **Hanya membaca**:
  * tidak ada direktori yang dibuat, diubah, atau dihapus. Perbaikan sisa temp
  * ada di `cleanTempDirs` supaya doctor selalu aman dipanggil kapan saja.
@@ -65,6 +105,7 @@ export async function runDoctor(
     unmanaged: drift.entries.filter((entry) => entry.status === "unmanaged"),
     stale: drift.entries.filter((entry) => entry.behindLibrary === true),
     tempDirs,
+    libraryMissing: await missingLibraryEntries(fs, dataRoot),
   };
 }
 

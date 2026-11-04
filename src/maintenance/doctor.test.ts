@@ -9,6 +9,7 @@ import {
   fixture,
   HOME,
   installedPath,
+  LIBRARY,
   mkdirp,
   ok,
   SKILL_NAME,
@@ -88,6 +89,33 @@ describe("runDoctor", () => {
     expect(ok(await setup.fs.readdir(storePath("claude-code"))).map((entry) => entry.name)).toEqual(
       [`${TEMP_PREFIX}sisa`, SKILL_NAME],
     );
+  });
+
+  it("melaporkan skill yang isi Library-nya hilang (celah yang dulu tidak terlihat)", async () => {
+    const setup = await fixture();
+    await setupSkill(setup, ["claude-code/global"]);
+    // Hapus folder Library: store masih utuh, jadi drift tetap "clean".
+    ok(await setup.fs.remove(path.join(LIBRARY, SKILL_NAME), { recursive: true }));
+
+    const report = await doctor(setup);
+
+    expect(report.libraryMissing).toHaveLength(1);
+    expect(report.libraryMissing[0]).toMatchObject({
+      name: SKILL_NAME,
+      path: path.join(LIBRARY, SKILL_NAME),
+    });
+    // Tanpa libraryMissing, satu-satunya jejak adalah baris ini:
+    expect(report.missing).toEqual([]);
+    expect(report.stale).toEqual([]);
+  });
+
+  it("tidak melaporkan apa pun bila isi Library masih ada", async () => {
+    const setup = await fixture();
+    await setupSkill(setup, ["claude-code/global"]);
+
+    const report = await doctor(setup);
+
+    expect(report.libraryMissing).toEqual([]);
   });
 });
 
