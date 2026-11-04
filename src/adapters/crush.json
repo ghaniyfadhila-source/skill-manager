@@ -1,0 +1,21 @@
+{
+  "id": "crush",
+  "name": "Crush",
+  "tier": "detected-only",
+  "detect": {
+    "paths": ["~/.config/crush"],
+    "binaries": ["crush"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [],
+  "readsShared": true,
+  "connect": {
+    "installUrl": "https://github.com/charmbracelet/crush",
+    "docsUrl": "https://github.com/charmbracelet/crush"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://github.com/charmbracelet/crush"
+  },
+  "notes": "Detected-only (roadmap v0.2). Store Crush nanti adalah %LOCALAPPDATA%\\crush\\skills; ~/.config/crush/skills hanya dipakai untuk deteksi."
+}

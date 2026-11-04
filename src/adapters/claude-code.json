@@ -1,0 +1,26 @@
+{
+  "id": "claude-code",
+  "name": "[CC]",
+  "tier": "managed",
+  "detect": {
+    "paths": ["~/.claude"],
+    "binaries": ["claude"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [
+    {
+      "scope": "global",
+      "path": "~/.claude/skills",
+      "exclusive": true
+    }
+  ],
+  "readsShared": false,
+  "connect": {
+    "installUrl": "https://code.claude.com/docs/en/skills",
+    "docsUrl": "https://code.claude.com/docs/en/skills"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://code.claude.com/docs/en/skills"
+  }
+}
