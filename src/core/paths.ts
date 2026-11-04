@@ -53,28 +53,42 @@ export function resolveDataRoot(options: DataRootOptions = {}): string {
   return nodePath.join(dataHome, "skillmanager");
 }
 
-export function libraryRoot(dataRoot: string): string {
-  return path.join(dataRoot, "library");
+/**
+ * Helper turunan data root. `platform` bisa disuntikkan agar test bisa
+ * memeriksa bentuk path Windows di Linux (dan sebaliknya) tanpa salah
+ * pemisah path.
+ */
+export function libraryRoot(
+  dataRoot: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platformPath(platform).join(dataRoot, "library");
 }
 
-export function adaptersRoot(dataRoot: string): string {
-  return path.join(dataRoot, "adapters");
+export function adaptersRoot(
+  dataRoot: string,
+  platform: NodeJS.Platform = process.platform,
+): string {
+  return platformPath(platform).join(dataRoot, "adapters");
 }
 
-export function depsRoot(dataRoot: string): string {
-  return path.join(dataRoot, "deps");
+export function depsRoot(dataRoot: string, platform: NodeJS.Platform = process.platform): string {
+  return platformPath(platform).join(dataRoot, "deps");
 }
 
-export function statePath(dataRoot: string): string {
-  return path.join(dataRoot, "state.json");
+export function statePath(dataRoot: string, platform: NodeJS.Platform = process.platform): string {
+  return platformPath(platform).join(dataRoot, "state.json");
 }
 
-export function dataRootPaths(dataRoot: string): DataRootPaths {
+export function dataRootPaths(
+  dataRoot: string,
+  platform: NodeJS.Platform = process.platform,
+): DataRootPaths {
   return {
     root: dataRoot,
-    library: libraryRoot(dataRoot),
-    adapters: adaptersRoot(dataRoot),
-    deps: depsRoot(dataRoot),
-    stateFile: statePath(dataRoot),
+    library: libraryRoot(dataRoot, platform),
+    adapters: adaptersRoot(dataRoot, platform),
+    deps: depsRoot(dataRoot, platform),
+    stateFile: statePath(dataRoot, platform),
   };
 }

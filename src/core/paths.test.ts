@@ -100,4 +100,15 @@ describe("path turunan data root", () => {
       stateFile: path.join(root, "state.json"),
     });
   });
+
+  it("memakai pemisah path sesuai platform yang disuntikkan", () => {
+    const winRoot = "C:\\Users\\x\\SkillManager";
+    const linRoot = "/home/x/.local/share/skillmanager";
+
+    expect(libraryRoot(winRoot, "win32")).toBe("C:\\Users\\x\\SkillManager\\library");
+    expect(statePath(winRoot, "win32")).toBe("C:\\Users\\x\\SkillManager\\state.json");
+
+    expect(libraryRoot(linRoot, "linux")).toBe("/home/x/.local/share/skillmanager/library");
+    expect(depsRoot(linRoot, "linux")).toBe("/home/x/.local/share/skillmanager/deps");
+  });
 });

@@ -2,7 +2,13 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { MemoryFileSystem } from "../fs/memory.js";
 import { type FsResult, fsErr } from "../fs/types.js";
-import { emptyState, loadState, STATE_FILE_NAME, saveState } from "./state.js";
+import {
+  CORRUPT_STATE_FILE_NAME,
+  emptyState,
+  loadState,
+  STATE_FILE_NAME,
+  saveState,
+} from "./state.js";
 import type { StateFile } from "./types.js";
 
 const ROOT = path.resolve(path.sep, "sm-state");
@@ -133,17 +139,13 @@ describe("loadState", () => {
   it("pulih ke state kosong untuk schema tidak valid dan menyebut fieldnya", async () => {
     const fs = new MemoryFileSystem();
     const dataRoot = path.join(ROOT, "schema-rusak");
-    await writeRawState(
-      fs,
-      dataRoot,
-      JSON.stringify({ ...VALID_STATE, schemaVersion: 2, settings: {} }),
-    );
+    await writeRawState(fs, dataRoot, JSON.stringify({ ...VALID_STATE, settings: {} }));
 
     const result = await loadState(fs, dataRoot);
 
     expect(result.status).toBe("recovered");
     expect(result.state).toEqual(emptyState());
-    expect(result.reason).toContain("schemaVersion");
+    expect(result.reason).toContain("settings");
   });
 
   it("pulih dan melaporkan alasan bila file tidak bisa dibaca", async () => {
@@ -196,5 +198,64 @@ describe("saveState", () => {
     expect(ok(await fs.readdir(dataRoot))).toEqual([
       { name: STATE_FILE_NAME, kind: "file", isSymlink: false },
     ]);
+  });
+
+  it("melaporkan schemaVersion lebih baru sebagai unsupported_version", async () => {
+    const fs = new MemoryFileSystem();
+    const dataRoot = path.join(ROOT, "versi-baru");
+    ok(await fs.mkdir(dataRoot, { recursive: true }));
+    ok(
+      await fs.write(
+        path.join(dataRoot, STATE_FILE_NAME),
+        JSON.stringify({ ...VALID_STATE, schemaVersion: 2 }),
+      ),
+    );
+
+    const result = await loadState(fs, dataRoot);
+
+    expect(result.status).toBe("unsupported_version");
+    expect(result.reason).toContain("2");
+    expect(result.state.library).toEqual([]);
+  });
+
+  it("mengarantina state korup ke state.json.corrupt sebelum menimpanya", async () => {
+    const fs = new MemoryFileSystem();
+    const dataRoot = path.join(ROOT, "korup");
+    ok(await fs.mkdir(dataRoot, { recursive: true }));
+    const korup = '{ "schemaVersion": 1, "library": [ BUKAN JSON }';
+    ok(await fs.write(path.join(dataRoot, STATE_FILE_NAME), korup));
+
+    ok(await saveState(fs, dataRoot, VALID_STATE));
+
+    const quarantined = ok(await fs.readText(path.join(dataRoot, CORRUPT_STATE_FILE_NAME)));
+    expect(quarantined).toBe(korup);
+
+    const loaded = await loadState(fs, dataRoot);
+    expect(loaded.status).toBe("loaded");
+    expect(loaded.state).toEqual(VALID_STATE);
+  });
+
+  it("tidak mengarantina state lama yang masih valid", async () => {
+    const fs = new MemoryFileSystem();
+    const dataRoot = path.join(ROOT, "sehat");
+    ok(await fs.mkdir(dataRoot, { recursive: true }));
+    ok(await fs.write(path.join(dataRoot, STATE_FILE_NAME), JSON.stringify(emptyState())));
+
+    ok(await saveState(fs, dataRoot, VALID_STATE));
+
+    expect(await fs.exists(path.join(dataRoot, CORRUPT_STATE_FILE_NAME))).toBe(false);
+  });
+
+  it("mengganti .corrupt lama saat state korup berikutnya disimpan", async () => {
+    const fs = new MemoryFileSystem();
+    const dataRoot = path.join(ROOT, "korup-ganda");
+    ok(await fs.mkdir(dataRoot, { recursive: true }));
+    ok(await fs.write(path.join(dataRoot, CORRUPT_STATE_FILE_NAME), "sisa lama"));
+    ok(await fs.write(path.join(dataRoot, STATE_FILE_NAME), "rusak lagi"));
+
+    ok(await saveState(fs, dataRoot, VALID_STATE));
+
+    const quarantined = ok(await fs.readText(path.join(dataRoot, CORRUPT_STATE_FILE_NAME)));
+    expect(quarantined).toBe("rusak lagi");
   });
 });

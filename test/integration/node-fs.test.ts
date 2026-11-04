@@ -264,4 +264,33 @@ describe("NodeFileSystem", () => {
       error: { code: "unsafe_symlink" },
     });
   });
+
+  it("copy mempertahankan bit executable sehingga hash sumber dan tujuan sama (prasyarat AC-4)", async (ctx) => {
+    const source = path.join(base, "exec-sumber");
+    const destination = path.join(base, "exec-tujuan");
+    await mkdir(path.join(source, "scripts"), { recursive: true });
+    await writeFile(path.join(source, "SKILL.md"), "# skill\n");
+    const script = path.join(source, "scripts", "run.sh");
+    await writeFile(script, "#!/bin/sh\necho halo\n");
+
+    try {
+      await chmod(script, 0o755);
+    } catch {
+      ctx.skip("OS menolak chmod; bit executable tidak bisa diuji di sini");
+      return;
+    }
+
+    // Hash harus identik di kedua OS: di Windows bit executable selalu 0,
+    // tetapi sumber dan tujuan sama-sama 0 sehingga hash tetap cocok.
+    const sourceHash = ok(await contentHash(fs, source));
+    ok(await fs.copy(source, destination));
+    const destinationHash = ok(await contentHash(fs, destination));
+
+    expect(destinationHash).toBe(sourceHash);
+
+    if (process.platform !== "win32") {
+      const copied = ok(await fs.stat(path.join(destination, "scripts", "run.sh")));
+      expect(isExecutable(copied)).toBe(true);
+    }
+  });
 });

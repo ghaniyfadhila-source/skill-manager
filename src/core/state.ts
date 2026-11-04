@@ -53,7 +53,7 @@ export const stateFileSchema = z.object({
   }),
 });
 
-export type StateLoadStatus = "loaded" | "missing" | "recovered";
+export type StateLoadStatus = "loaded" | "missing" | "recovered" | "unsupported_version";
 
 export interface StateLoadResult {
   readonly state: StateFile;
@@ -112,6 +112,19 @@ export async function loadState(fs: FileSystem, dataRoot: string): Promise<State
     return recovered(`${STATE_FILE_NAME} bukan JSON valid: ${message}`);
   }
 
+  // Versi skema yang lebih baru tidak boleh diperlakukan sebagai "korup":
+  // pengguna perlu tahu bahwa ini state dari versi aplikasi yang lebih baru.
+  // Migrasi belum ada di v0.1, jadi state lama tidak dibaca, tetapi file-nya
+  // tidak hilang — saveState mengarantinanya sebelum menimpa.
+  const version = (parsedJson as { schemaVersion?: unknown } | null)?.schemaVersion;
+  if (typeof version === "number" && version > STATE_SCHEMA_VERSION) {
+    return {
+      state: emptyState(),
+      status: "unsupported_version",
+      reason: `${STATE_FILE_NAME} memakai schemaVersion ${version}, sedangkan aplikasi ini hanya mendukung ${STATE_SCHEMA_VERSION}.`,
+    };
+  }
+
   const parsed = stateFileSchema.safeParse(parsedJson);
   if (!parsed.success) {
     return recovered(`${STATE_FILE_NAME} tidak sesuai schema: ${formatIssues(parsed.error)}`);
@@ -119,9 +132,42 @@ export async function loadState(fs: FileSystem, dataRoot: string): Promise<State
   return { state: parsed.data, status: "loaded" };
 }
 
+/** Nama file karantina untuk state.json yang tidak bisa diparse. */
+export const CORRUPT_STATE_FILE_NAME = "state.json.corrupt";
+
+/**
+ * Pindahkan state.json yang korup ke `state.json.corrupt` sebelum ditimpa.
+ *
+ * Tanpa ini, state yang korup akan hilang permanen pada penyimpanan berikutnya.
+ * Hanya dipanggil dari `saveState`, tidak pernah saat startup (AC-10).
+ */
+async function quarantineCorruptState(fs: FileSystem, targetPath: string): Promise<void> {
+  const existing = await fs.readText(targetPath);
+  if (!existing.ok) {
+    return;
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(existing.value);
+  } catch {
+    parsed = undefined;
+  }
+  if (parsed !== undefined && stateFileSchema.safeParse(parsed).success) {
+    return;
+  }
+
+  const corruptPath = `${targetPath}.corrupt`;
+  await fs.remove(corruptPath);
+  await fs.rename(targetPath, corruptPath);
+}
+
 /**
  * Tulis state.json secara atomik: tulis `state.json.tmp`, lalu rename
  * (spec §9). Bila gagal, file sementara dibersihkan dan state lama dibiarkan.
+ *
+ * State lama yang korup dikarantina ke `state.json.corrupt` lebih dulu agar
+ * tidak hilang tanpa jejak.
  */
 export async function saveState(
   fs: FileSystem,
@@ -142,6 +188,8 @@ export async function saveState(
     await fs.remove(tempPath);
     return written;
   }
+
+  await quarantineCorruptState(fs, targetPath);
 
   const renamed = await fs.rename(tempPath, targetPath);
   if (!renamed.ok) {

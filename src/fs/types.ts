@@ -19,6 +19,8 @@ export type FsErrorCode =
   | "unsafe_path"
   | "unsafe_symlink"
   | "symlink_loop"
+  | "process_not_found"
+  | "process_failed"
   | "io_error";
 
 export interface FsError {
