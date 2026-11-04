@@ -28,6 +28,12 @@ export interface UninstallOptions {
    * `false`: drift selalu ditolak agar perubahan user tidak hilang diam-diam.
    */
   readonly force?: boolean;
+  /**
+   * Persetujuan user untuk mencabut dari grup shared setelah melihat member
+   * terdampak (spec §10.4.3). Tanpa ini, Target shared ditolak sebelum ada
+   * penghapusan apa pun.
+   */
+  readonly acknowledgeShared?: boolean;
   /** Default `os.homedir()`; bisa disuntikkan test. */
   readonly home?: string;
   readonly platform?: NodeJS.Platform;
@@ -69,6 +75,67 @@ async function findSkill(
     });
   }
   return { skill, state };
+}
+
+type PlanEntry =
+  | { readonly targetId: string; readonly store: Store; readonly error?: undefined }
+  | { readonly targetId: string; readonly store?: undefined; readonly error: TargetError };
+
+function resolvePlanEntry(
+  options: UninstallOptions,
+  targetId: string,
+  stores: ReadonlyMap<string, Store>,
+): PlanEntry {
+  try {
+    const target = resolveTarget(options.adapters, targetId);
+    const store = stores.get(target.storeId);
+    if (store === undefined) {
+      throw new SkillManagerError({
+        code: "unknown_store",
+        message: `Store "${target.storeId}" untuk Target "${targetId}" tidak dikenal.`,
+      });
+    }
+    return { targetId, store };
+  } catch (error) {
+    return { targetId, error: toTargetError(error) };
+  }
+}
+
+/**
+ * Konfirmasi grup shared (spec §10.4.3): mencabut dari Store shared menghapus
+ * salinan untuk semua member, jadi user wajib melihat daftarnya sebelum ada
+ * penghapusan. Bentuk galat sengaja sama dengan `installSkill` agar server/UI
+ * memakai satu penanganan.
+ */
+function assertSharedAcknowledged(
+  plan: readonly PlanEntry[],
+  acknowledgeShared: boolean | undefined,
+): void {
+  if (acknowledgeShared === true) {
+    return;
+  }
+  const shared = plan.filter((entry) => entry.store !== undefined && !entry.store.exclusive);
+  if (shared.length === 0) {
+    return;
+  }
+  const storeList = new Map<string, Store>();
+  for (const entry of shared) {
+    if (entry.store !== undefined) {
+      storeList.set(entry.store.id, entry.store);
+    }
+  }
+  const stores = [...storeList.values()];
+  const described = stores.map((store) => `${store.id} (member: ${store.members.join(", ")})`);
+  throw new SkillManagerError({
+    code: "shared_confirmation_required",
+    message:
+      `Mencabut dari grup shared akan menghapus salinan untuk semua member terdampak: ${described.join("; ")}. ` +
+      "Setujui dulu dengan acknowledgeShared.",
+    details: {
+      stores: stores.map((store) => ({ storeId: store.id, members: [...store.members] })),
+      targets: shared.map((entry) => entry.targetId),
+    },
+  });
 }
 
 /**
@@ -180,24 +247,31 @@ export async function uninstallSkill(options: UninstallOptions): Promise<readonl
     ),
   );
 
+  // Resolusi semua Target lebih dulu: penolakan grup shared harus terjadi
+  // sebelum satu pun direktori dihapus.
+  const plan = options.targets.map((targetId) => resolvePlanEntry(options, targetId, stores));
+  assertSharedAcknowledged(plan, options.acknowledgeShared);
+
   const results: TargetResult[] = [];
   const removed: Installation[] = [];
 
-  for (const targetId of options.targets) {
+  for (const entry of plan) {
+    if (entry.error !== undefined) {
+      results.push({ targetId: entry.targetId, ok: false, error: entry.error });
+      continue;
+    }
     try {
-      const target = resolveTarget(options.adapters, targetId);
-      const store = stores.get(target.storeId);
-      if (store === undefined) {
-        throw new SkillManagerError({
-          code: "unknown_store",
-          message: `Store "${target.storeId}" untuk Target "${targetId}" tidak dikenal.`,
-        });
-      }
-      const installation = await uninstallOne(fs, state, skill, store, options.force === true);
+      const installation = await uninstallOne(
+        fs,
+        state,
+        skill,
+        entry.store,
+        options.force === true,
+      );
       removed.push(installation);
-      results.push({ targetId, ok: true, installation });
+      results.push({ targetId: entry.targetId, ok: true, installation });
     } catch (error) {
-      results.push({ targetId, ok: false, error: toTargetError(error) });
+      results.push({ targetId: entry.targetId, ok: false, error: toTargetError(error) });
     }
   }
 

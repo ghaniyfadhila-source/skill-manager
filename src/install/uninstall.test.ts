@@ -2,6 +2,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { loadAdapters } from "../adapters/loader.js";
 import type { Adapter } from "../adapters/manifest.js";
+import { SkillManagerError } from "../core/errors.js";
 import { contentHash } from "../core/hash.js";
 import { libraryRoot } from "../core/paths.js";
 import { loadState, saveState } from "../core/state.js";
@@ -24,6 +25,18 @@ function ok<T>(result: FsResult<T>): T {
     throw new Error(`Operasi gagal: ${result.error.code} — ${result.error.message}`);
   }
   return result.value;
+}
+
+async function captureError(run: () => Promise<unknown>): Promise<SkillManagerError> {
+  try {
+    await run();
+  } catch (error) {
+    if (error instanceof SkillManagerError) {
+      return error;
+    }
+    throw error;
+  }
+  throw new Error("Fungsi seharusnya melempar SkillManagerError");
 }
 
 async function mkdirp(fs: MemoryFileSystem, dir: string): Promise<void> {
@@ -270,6 +283,59 @@ describe("uninstallSkill", () => {
       ok: false,
       error: { code: "installation_not_found" },
     });
+    expect(await setup.fs.exists(installedPath("claude-code"))).toBe(false);
+    const { state } = await loadState(setup.fs, DATA_ROOT);
+    expect(state.installations).toEqual([]);
+  });
+  it("menolak cabut dari grup shared tanpa acknowledgeShared sebelum menghapus apa pun", async () => {
+    const setup = await fixture();
+    await installTo(setup, ["claude-code/global", "shared/global"], { acknowledgeShared: true });
+
+    const error = await captureError(() =>
+      uninstallFrom(setup, ["claude-code/global", "shared/global"]),
+    );
+
+    expect(error.code).toBe("shared_confirmation_required");
+    expect(error.details).toMatchObject({
+      stores: [
+        {
+          storeId: "~/.agents/skills",
+          members: expect.arrayContaining(["codex", "gemini", "cursor"]),
+        },
+      ],
+      targets: ["shared/global"],
+    });
+    expect(await setup.fs.exists(installedPath("claude-code"))).toBe(true);
+    expect(await setup.fs.exists(installedPath("shared"))).toBe(true);
+    const { state } = await loadState(setup.fs, DATA_ROOT);
+    expect(state.installations).toHaveLength(2);
+  });
+
+  it("mencabut dari grup shared setelah diakui: semua member kehilangan salinan", async () => {
+    const setup = await fixture();
+    await installTo(setup, ["shared/global"], { acknowledgeShared: true });
+
+    const results = await uninstallFrom(setup, ["shared/global"], { acknowledgeShared: true });
+
+    expect(results[0]).toMatchObject({
+      targetId: "shared/global",
+      ok: true,
+      installation: { storeId: "~/.agents/skills" },
+    });
+    // Satu direktori fisik dipakai semua member, jadi hilangnya direktori itu
+    // berarti codex, gemini, dan cursor sama-sama kehilangan salinannya.
+    expect(await setup.fs.exists(installedPath("shared"))).toBe(false);
+    const { state } = await loadState(setup.fs, DATA_ROOT);
+    expect(state.installations).toEqual([]);
+  });
+
+  it("cabut dari Store eksklusif tidak membutuhkan acknowledgeShared", async () => {
+    const setup = await fixture();
+    await installTo(setup, ["claude-code/global"]);
+
+    const results = await uninstallFrom(setup, ["claude-code/global"]);
+
+    expect(results[0]).toMatchObject({ targetId: "claude-code/global", ok: true });
     expect(await setup.fs.exists(installedPath("claude-code"))).toBe(false);
     const { state } = await loadState(setup.fs, DATA_ROOT);
     expect(state.installations).toEqual([]);
