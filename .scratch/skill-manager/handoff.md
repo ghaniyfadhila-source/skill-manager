@@ -6,7 +6,9 @@
 
 Planning sudah **selesai dan disetujui**. Jangan mengulang wawancara desain; jangan mengubah keputusan di bawah tanpa membuka ADR baru. Implementasi boleh dimulai dari ticket 01 atau 12 di `.scratch/skill-manager/issues/` **setelah user mengizinkan**. Belum ada satu baris kode pun yang ditulis.
 
-Repo: `C:\Users\thinkpad\Desktop\allMaProject\skillManager` (git, branch `main`, **belum ada commit**).
+Repo lokal: `C:\Users\thinkpad\Desktop\allMaProject\skillManager` (git sendiri, branch `main`).
+Remote: `https://github.com/ghaniyfadhila-source/skill-manager` (publik, branch `main` sudah ter-push).
+Catatan: direktori ini **bersarang** di dalam repo lain `allMaProject` (remote `portofolioPart2`, masih 0 commit) — jalankan perintah git dari dalam `skillManager`, bukan dari induknya.
 Mesin: Windows 11, Node 24.21, pnpm 12.8.1, **tidak ada Rust**. npm global bin: `%APPDATA%\npm`.
 
 ## 1. Produk
