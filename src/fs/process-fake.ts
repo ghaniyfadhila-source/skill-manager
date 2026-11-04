@@ -73,7 +73,7 @@ export class FakeProcessRunner implements ProcessRunner {
         return fsErr(
           "process_not_found",
           command,
-          'Perintah "' + command + '" tidak ditemukan di PATH.',
+          `Perintah "${command}" tidak ditemukan di PATH.`,
         );
       case "failed":
         return fsErr("process_failed", command, response.message);

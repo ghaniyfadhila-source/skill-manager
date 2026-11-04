@@ -28,8 +28,8 @@ function toProcessError(error: unknown, command: string): FsError {
   const code = PROCESS_ERROR_CODES[errno ?? ""] ?? "process_failed";
   const message =
     code === "process_not_found"
-      ? 'Perintah "' + command + '" tidak ditemukan di PATH.'
-      : 'Perintah "' + command + '" gagal dijalankan: ' + describe(error);
+      ? `Perintah "${command}" tidak ditemukan di PATH.`
+      : `Perintah "${command}" gagal dijalankan: ${describe(error)}`;
   return { code, path: command, message, cause: error };
 }
 
