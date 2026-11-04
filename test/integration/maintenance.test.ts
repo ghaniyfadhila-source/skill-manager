@@ -126,9 +126,13 @@ describe("AC-8 drift, restore, adopt, dan doctor", () => {
     );
     expect((await drift(skillName)).entries.every((entry) => entry.status === "clean")).toBe(true);
 
-    // Backup-swap tidak boleh menyisakan staging/backup di Store.
-    expect(await tempEntries(harness, path.dirname(claudeSkillDir))).toEqual([]);
-    expect(await tempEntries(harness, path.dirname(opencodeSkillDir))).toEqual([]);
+    // Backup-swap tidak boleh menyisakan staging maupun backup di Store mana pun.
+    for (const storeDir of [claudeSkillDir, opencodeSkillDir]) {
+      const sisa = await tempEntries(harness, path.dirname(storeDir));
+      expect(sisa.filter((name) => name.startsWith(`${TEMP_PREFIX}restore-`))).toEqual([]);
+      expect(sisa.filter((name) => name.startsWith(`${TEMP_PREFIX}backup-`))).toEqual([]);
+      expect(sisa).toEqual([]);
+    }
   });
 
   it("AC-8 adopt memperbarui hash Library mengikuti isi Store", async () => {
@@ -207,5 +211,40 @@ describe("AC-8 drift, restore, adopt, dan doctor", () => {
     expect(report.unmanaged.map((entry) => entry.skillName)).toEqual(["skill-asing"]);
     expect(report.stale).toEqual([]);
     expect(report.tempDirs).toEqual([]);
+  });
+
+  /**
+   * BATAS v0.1 yang sengaja didokumentasikan — bukan bug yang belum diperbaiki.
+   *
+   * `computeDrift` menjawab "apakah Store sesuai yang dicatat", bukan "apakah
+   * Library masih utuh". Dua pertanyaan berbeda, dan v0.1 hanya menjawab yang
+   * pertama. Test ini mengunci perilaku itu apa adanya: bila celah ini ditutup,
+   * test ini HARUS gagal dan kontraknya diperbarui secara sadar.
+   */
+  it("drift tidak melaporkan isi Library yang hilang (batas v0.1)", async () => {
+    ok(await harness.fs.remove(harness.libraryDir(skillName), { recursive: true }));
+
+    const report = await drift(skillName);
+    expect(report.entries.map((entry) => entry.status)).toEqual(["clean", "clean"]);
+    expect(report.staleCount).toBe(0);
+
+    const doctor = await runDoctor(harness.fs, harness.dataRoot, {
+      adapters,
+      home: harness.home,
+    });
+    expect(doctor.missing).toEqual([]);
+
+    const restore = await syncSkill({
+      fs: harness.fs,
+      dataRoot: harness.dataRoot,
+      adapters,
+      skill: skillName,
+      action: "restore",
+      confirm: true,
+      home: harness.home,
+    }).catch((error: unknown) => error);
+
+    expect(restore).toBeInstanceOf(SkillManagerError);
+    expect((restore as SkillManagerError).code).toBe("skill_not_found");
   });
 });
