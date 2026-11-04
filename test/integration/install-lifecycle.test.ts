@@ -132,10 +132,27 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
     for (const member of ["codex", "gemini", "cursor"]) {
       expect((error as SkillManagerError).message).toContain(member);
     }
-    const details = (error as SkillManagerError).details as {
-      stores: { storeId: string; members: string[] }[];
-    };
-    expect(details.stores[0]?.members).toContain("codex");
+    // Bentuk details dipakai bersama oleh CLI dan UI (kontrak §7); jangan diubah.
+    expect((error as SkillManagerError).details).toEqual({
+      stores: [
+        {
+          storeId: SHARED_STORE,
+          members: [
+            "codex",
+            "gemini",
+            "cursor",
+            "copilot",
+            "amp",
+            "zed",
+            "roo",
+            "kilo",
+            "factory",
+            "dsh",
+          ],
+        },
+      ],
+      targets: ["shared/global"],
+    });
     expect(await harness.fs.exists(harness.storeSkillPath(SHARED_STORE, skill.name))).toBe(false);
   });
 
@@ -149,6 +166,31 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
     ).toBe(skill.contentHash);
     const { state } = await loadState(harness.fs, harness.dataRoot);
     expect(state.installations[0]?.storeId).toBe(SHARED_STORE);
+  });
+
+  it("mencabut dari grup shared juga memakai details yang sama dan menolak tanpa acknowledge", async () => {
+    await install(["shared/global"], true);
+
+    const error = await capture(() =>
+      uninstallSkill({
+        fs: harness.fs,
+        dataRoot: harness.dataRoot,
+        adapters,
+        skill: skill.name,
+        targets: ["shared/global"],
+        home: harness.home,
+      }),
+    );
+
+    expect((error as SkillManagerError).code).toBe("shared_confirmation_required");
+    const details = (error as SkillManagerError).details as {
+      stores: { storeId: string; members: string[] }[];
+      targets: string[];
+    };
+    expect(details.stores[0]?.storeId).toBe(SHARED_STORE);
+    expect(details.stores[0]?.members).toContain("codex");
+    expect(details.targets).toEqual(["shared/global"]);
+    expect(await harness.fs.exists(harness.storeSkillPath(SHARED_STORE, skill.name))).toBe(true);
   });
 
   it("AC-7 cabut menghapus salinan, Library utuh, dan pasang ulang berhasil tanpa jaringan", async () => {
