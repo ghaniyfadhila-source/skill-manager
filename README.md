@@ -2,6 +2,9 @@
 
 Satu gudang pusat untuk skill AI, dipasang ke banyak harness sekaligus.
 
+[![npm](https://img.shields.io/npm/v/@ghaniy_fadhil/skill-manager.svg)](https://www.npmjs.com/package/@ghaniy_fadhil/skill-manager)
+[![CI](https://github.com/ghaniyfadhila-source/skill-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/ghaniyfadhila-source/skill-manager/actions/workflows/ci.yml)
+
 Setiap harness punya folder skill sendiri — `~/.claude/skills`, `~/.config/opencode/skills`,
 `~/.agents/skills`, dan seterusnya. Kalau kamu memakai lebih dari satu harness, skill yang
 sama akan tersalin berkali-kali, lalu perlahan berbeda isinya karena diedit di tempat yang
@@ -24,7 +27,15 @@ Semua berjalan lokal di `127.0.0.1`. Tidak ada server daring, tidak ada akun, ti
 
 ## Pasang
 
-> **Belum ada di npm registry.** Paket ini masih 0.1.0 dan dipasang langsung dari repositori.
+```bash
+npm install -g @ghaniy_fadhil/skill-manager
+skill-manager serve
+```
+
+Butuh **Node.js >= 22.20**. Browser akan terbuka otomatis ke alamat dengan token sekali pakai.
+Tanpa instalasi global pun bisa: `npx @ghaniy_fadhil/skill-manager serve`.
+
+Dari sumber, kalau mau mengubah kodenya:
 
 ```bash
 git clone https://github.com/ghaniyfadhila-source/skill-manager.git
@@ -32,14 +43,6 @@ cd skill-manager
 pnpm install
 pnpm run build
 node dist/cli.js serve
-```
-
-Butuh **Node.js >= 22.20** dan pnpm. Browser akan terbuka otomatis ke alamat dengan token
-sekali pakai. Kalau tidak mau repot menulis `node dist/cli.js` terus-menerus:
-
-```bash
-npm link          # sekali saja, dari dalam folder repo
-skill-manager serve
 ```
 
 ## Perintah
