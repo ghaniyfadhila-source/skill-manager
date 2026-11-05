@@ -48,7 +48,6 @@ export interface DepCommand {
 
 export interface SkillDetail extends SkillSummary {
   readonly files?: readonly SkillFile[];
-  readonly provenance?: string;
   /** Dipakai untuk daftar dependensi di halaman detail (AC-9). */
   readonly dependencies?: readonly DepCommand[];
 }
@@ -121,14 +120,22 @@ export interface InspectRequest {
   readonly ref?: string;
 }
 
+/** Penanda risiko pratinjau (spec §13); bentuknya ditetapkan kontrak §7. */
+export interface InspectRisk {
+  readonly scripts?: boolean;
+  readonly binary?: boolean;
+  readonly escapingSymlink?: boolean;
+  readonly messages?: readonly string[];
+}
+
 export interface InspectResult {
   readonly stagingId?: string;
   readonly files?: readonly SkillFile[];
-  readonly risky?: readonly string[];
+  readonly risky?: InspectRisk;
   readonly totalBytes?: number;
   readonly license?: string;
   readonly suggestedName?: string;
-  readonly provenance?: string;
+  readonly provenance?: SourceInfo;
 }
 
 export interface InstallRequest {

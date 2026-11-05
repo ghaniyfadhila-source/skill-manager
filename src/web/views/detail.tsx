@@ -88,12 +88,6 @@ export function SkillDetailView({
         </div>
         <div>
           <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Provenance
-          </dt>
-          <dd className="break-all font-mono text-xs">{skill.provenance ?? "-"}</dd>
-        </div>
-        <div>
-          <dt className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Hash & waktu impor
           </dt>
           <dd className="break-all font-mono text-xs">
