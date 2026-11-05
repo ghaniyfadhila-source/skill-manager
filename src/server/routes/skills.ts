@@ -3,6 +3,7 @@ import type { Hono } from "hono";
 import { z } from "zod";
 import { SkillManagerError } from "../../core/errors.js";
 import { libraryRoot } from "../../core/paths.js";
+import { findLibrarySkill } from "../../core/skill-lookup.js";
 import { loadState } from "../../core/state.js";
 import type { Skill } from "../../core/types.js";
 import { planDependencies } from "../../deps/plan.js";
@@ -79,14 +80,7 @@ function riskyOf(inspect: InspectResult): {
 
 /** Cari skill berdasarkan nama atau id; tidak ada = 404 skill_not_found. */
 export async function findSkill(deps: ServerDeps, name: string): Promise<Skill> {
-  const { state } = await loadState(deps.fs, deps.dataRoot);
-  const skill = state.library.find((entry) => entry.name === name || entry.id === name);
-  if (skill === undefined) {
-    throw new SkillManagerError({
-      code: "skill_not_found",
-      message: `Skill "${name}" tidak ada di Library.`,
-    });
-  }
+  const { skill } = await findLibrarySkill(deps.fs, deps.dataRoot, name);
   return skill;
 }
 

@@ -3,6 +3,7 @@ import { listStores, resolveTarget } from "../adapters/index.js";
 import type { Adapter } from "../adapters/manifest.js";
 import { SkillManagerError } from "../core/errors.js";
 import { contentHash } from "../core/hash.js";
+import { findLibrarySkill } from "../core/skill-lookup.js";
 import { loadState, saveState } from "../core/state.js";
 import type {
   Installation,
@@ -61,21 +62,6 @@ function toTargetError(error: unknown): TargetError {
  * Skill yang dicabut hanya perlu entri Library (`dirName`), bukan isi folder
  * Library: Library tidak pernah disentuh, bahkan bila salinannya sudah hilang.
  */
-async function findSkill(
-  fs: FileSystem,
-  dataRoot: string,
-  name: string,
-): Promise<{ skill: Skill; state: StateFile }> {
-  const { state } = await loadState(fs, dataRoot);
-  const skill = state.library.find((entry) => entry.name === name || entry.id === name);
-  if (skill === undefined) {
-    throw new SkillManagerError({
-      code: "skill_not_found",
-      message: `Skill "${name}" tidak ada di Library.`,
-    });
-  }
-  return { skill, state };
-}
 
 type PlanEntry =
   | { readonly targetId: string; readonly store: Store; readonly error?: undefined }
@@ -240,7 +226,7 @@ async function persistRemovals(
  */
 export async function uninstallSkill(options: UninstallOptions): Promise<readonly TargetResult[]> {
   const { fs, dataRoot } = options;
-  const { skill, state } = await findSkill(fs, dataRoot, options.skill);
+  const { skill, state } = await findLibrarySkill(fs, dataRoot, options.skill);
   const stores = new Map(
     listStores(options.adapters, { home: options.home, platform: options.platform }).map(
       (store) => [store.id, store],

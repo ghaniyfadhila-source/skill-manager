@@ -4,6 +4,7 @@ import type { Adapter } from "../adapters/manifest.js";
 import { SkillManagerError } from "../core/errors.js";
 import { contentHash } from "../core/hash.js";
 import { libraryRoot } from "../core/paths.js";
+import { resolveLibrarySkill } from "../core/skill-lookup.js";
 import { loadState, saveState } from "../core/state.js";
 import type {
   Installation,
@@ -55,32 +56,6 @@ function toTargetError(error: unknown): TargetError {
     code: "io_error",
     message: error instanceof Error ? error.message : String(error),
   };
-}
-
-async function findSkill(
-  fs: FileSystem,
-  dataRoot: string,
-  name: string,
-): Promise<{ skill: Skill; source: string; state: StateFile }> {
-  const { state } = await loadState(fs, dataRoot);
-  const skill = state.library.find((entry) => entry.name === name || entry.id === name);
-  if (skill === undefined) {
-    throw new SkillManagerError({
-      code: "skill_not_found",
-      message: `Skill "${name}" tidak ada di Library.`,
-    });
-  }
-
-  const source = path.join(libraryRoot(dataRoot), skill.dirName);
-  const stat = await fs.stat(source);
-  if (!stat.ok || stat.value.kind !== "directory") {
-    throw new SkillManagerError({
-      code: "skill_not_found",
-      message: `Isi skill "${skill.name}" tidak ditemukan di Library (${source}).`,
-      details: { path: source },
-    });
-  }
-  return { skill, source, state };
 }
 
 /** Store yang belum ada dibuat lebih dulu agar guard bisa me-realpath-nya. */
@@ -324,7 +299,7 @@ async function persistInstallations(
  */
 export async function installSkill(options: InstallOptions): Promise<readonly TargetResult[]> {
   const { fs, dataRoot } = options;
-  const { skill, source, state } = await findSkill(fs, dataRoot, options.skill);
+  const { skill, source, state } = await resolveLibrarySkill(fs, dataRoot, options.skill);
   const stores = new Map(
     listStores(options.adapters, { home: options.home, platform: options.platform }).map(
       (store) => [store.id, store],
