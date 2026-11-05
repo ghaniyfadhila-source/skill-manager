@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { handleDialogKey } from "./ui.js";
+import { SkillDetailView } from "./views/detail.js";
 import { DoctorView } from "./views/doctor.js";
 import { HarnessesView } from "./views/harnesses.js";
 import { MatrixView } from "./views/matrix.js";
@@ -156,5 +157,95 @@ describe("dialog konfirmasi", () => {
 
     expect(handled).toBe(false);
     expect(closed).toBe(0);
+  });
+});
+
+describe("AC-8 — Sinkron hanya setelah konfirmasi", () => {
+  it("menawarkan Sinkronkan hanya pada Target yang drift", () => {
+    const html = renderToStaticMarkup(
+      <SkillDetailView
+        skill={{
+          id: "sk_alpha",
+          name: "alpha",
+          contentHash: "sha256:abc",
+          files: [{ path: "SKILL.md", bytes: 10 }],
+          dependencies: [],
+        }}
+        name="alpha"
+        installations={[
+          {
+            skillId: "sk_alpha",
+            skillName: "alpha",
+            targetId: "claude-code/global",
+            drift: "modified",
+          },
+          { skillId: "sk_alpha", skillName: "alpha", targetId: "opencode/global", drift: "clean" },
+        ]}
+        loading={false}
+        error={null}
+        onBack={noop}
+        onRunDeps={noop}
+        onSync={noop}
+      />,
+    );
+
+    // Hanya entri modified yang punya tombol; clean tidak perlu ditawari.
+    expect(html.match(/Sinkronkan/g) ?? []).toHaveLength(1);
+    expect(html).toContain("Drift: isi berubah");
+    expect(html).toContain("Terpasang");
+  });
+});
+
+describe("AC-9 — Dependensi", () => {
+  it("menampilkan perintah persis dan tombol jalankan, bukan klaim halaman lain", () => {
+    const html = renderToStaticMarkup(
+      <SkillDetailView
+        skill={{
+          id: "sk_alpha",
+          name: "alpha",
+          contentHash: "sha256:abc",
+          files: [],
+          dependencies: [
+            { command: "npm", args: ["install", "--ignore-scripts"], reason: "package.json" },
+          ],
+        }}
+        name="alpha"
+        installations={[]}
+        loading={false}
+        error={null}
+        onBack={noop}
+        onRunDeps={noop}
+        onSync={noop}
+      />,
+    );
+
+    expect(html).toContain("npm install --ignore-scripts");
+    expect(html).toContain("Jalankan dependensi");
+    // Kalimat lama menjanjikan tombol di halaman lain yang tidak ada.
+    expect(html).not.toContain("butuh konfirmasi di halaman Skills");
+  });
+
+  it("tidak menawarkan tombol jalankan saat tidak ada dependensi", () => {
+    const html = renderToStaticMarkup(
+      <SkillDetailView
+        skill={{
+          id: "sk_alpha",
+          name: "alpha",
+          contentHash: "sha256:abc",
+          files: [],
+          dependencies: [],
+        }}
+        name="alpha"
+        installations={[]}
+        loading={false}
+        error={null}
+        onBack={noop}
+        onRunDeps={noop}
+        onSync={noop}
+      />,
+    );
+
+    expect(html).toContain("Tidak ada dependensi");
+    expect(html).not.toContain("Jalankan dependensi");
   });
 });

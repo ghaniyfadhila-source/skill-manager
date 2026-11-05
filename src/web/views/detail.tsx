@@ -9,6 +9,12 @@ export interface SkillDetailViewProps {
   readonly loading: boolean;
   readonly error: string | null;
   readonly onBack: () => void;
+  /** Jalankan perintah dependensi setelah konfirmasi (AC-9). */
+  readonly onRunDeps: () => void;
+  /** Kembalikan satu Target yang drift dari Library (AC-8). */
+  readonly onSync: (targetId: string) => void;
+  /** Target yang sedang diproses, dipakai menonaktifkan tombolnya saja. */
+  readonly busyTarget?: string | null;
 }
 
 /** Detail skill: isi folder, provenance, lisensi, dependensi, riwayat pasang/cabut. */
@@ -19,6 +25,9 @@ export function SkillDetailView({
   loading,
   error,
   onBack,
+  onRunDeps,
+  onSync,
+  busyTarget,
 }: SkillDetailViewProps) {
   const header = (
     <div className="flex flex-wrap items-center justify-between gap-3">
@@ -148,11 +157,21 @@ export function SkillDetailView({
                   </p>
                 )}
                 <p className="mt-1 text-xs text-amber-300">
-                  Tidak dijalankan otomatis — butuh konfirmasi di halaman Skills.
+                  Tidak dijalankan otomatis. Perintah di atas dijalankan persis apa adanya setelah
+                  kamu mengonfirmasi.
                 </p>
               </li>
             ))}
           </ul>
+        )}
+        {dependencies.length > 0 && (
+          <button
+            type="button"
+            className="rounded bg-sky-600 px-3 py-2 text-sm font-medium"
+            onClick={onRunDeps}
+          >
+            Jalankan dependensi
+          </button>
         )}
       </section>
 
@@ -167,10 +186,24 @@ export function SkillDetailView({
             {history.map((installation) => (
               <li key={installation.targetId} className="flex flex-wrap justify-between gap-2 p-3">
                 <span className="font-mono text-xs">{installation.targetId}</span>
-                <span className="text-xs text-slate-400">
-                  {driftLabel(installation.drift ?? "clean")} · dipasang{" "}
-                  {installation.installedAt ?? "waktu tidak dicatat"} · mode{" "}
-                  {installation.mode ?? "copy"}
+                <span className="flex items-center gap-2 text-xs text-slate-400">
+                  <span>
+                    {driftLabel(installation.drift ?? "clean")} · dipasang{" "}
+                    {installation.installedAt ?? "waktu tidak dicatat"} · mode{" "}
+                    {installation.mode ?? "copy"}
+                  </span>
+                  {installation.drift !== undefined && installation.drift !== "clean" ? (
+                    <button
+                      type="button"
+                      className="rounded border border-slate-600 px-2 py-1 text-xs hover:bg-slate-800 disabled:opacity-50"
+                      disabled={busyTarget === installation.targetId}
+                      onClick={() => {
+                        onSync(installation.targetId);
+                      }}
+                    >
+                      Sinkronkan
+                    </button>
+                  ) : null}
                 </span>
               </li>
             ))}

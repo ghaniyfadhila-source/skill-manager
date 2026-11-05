@@ -160,6 +160,72 @@ export function App() {
     }
   }, [staged, reload]);
 
+  /** AC-9: perintah dependensi hanya berjalan setelah konfirmasi yang menyebutnya. */
+  const runDeps = useCallback(async () => {
+    if (detail === null) {
+      return;
+    }
+    const commands = detail.dependencies ?? [];
+    const listed = commands
+      .map((command) => `${command.command} ${(command.args ?? []).join(" ")}`.trim())
+      .join("\n");
+    const approved = await confirm.ask({
+      kind: "destructive",
+      title: "Jalankan dependensi",
+      message: "Perintah berikut akan dijalankan persis apa adanya untuk " + detail.name + ".",
+      details: listed.length === 0 ? ["(tidak ada perintah)"] : listed.split("\n"),
+      confirmLabel: "Jalankan",
+    });
+    if (!approved) {
+      return;
+    }
+    setNotice(null);
+    try {
+      await api.depsRun({ skill: detail.name });
+      setNotice(`Dependensi ${detail.name} selesai dijalankan.`);
+    } catch (caught) {
+      setNotice(null);
+      setError(errorInfo(caught));
+    }
+  }, [detail, confirm]);
+
+  /**
+   * AC-8: menimpa isi Store dengan isi Library. Konfirmasi menyebut Target dan
+   * akibatnya, dan server tetap menolak bila `confirm` tidak ikut terkirim.
+   */
+  const syncTarget = useCallback(
+    async (targetId: string) => {
+      if (detail === null) {
+        return;
+      }
+      const approved = await confirm.ask({
+        kind: "destructive",
+        title: "Kembalikan dari Library",
+        message:
+          "Isi direktori " +
+          targetId +
+          " akan ditimpa dengan isi Library. Perubahan yang kamu buat di Store akan hilang; Library tidak berubah.",
+        details: [detail.name, targetId, "sumber kebenaran: Library"],
+        confirmLabel: "Timpa",
+      });
+      if (!approved) {
+        return;
+      }
+      setBusy(`sync::${targetId}`);
+      setNotice(null);
+      try {
+        await api.sync({ skill: detail.name, action: "restore", confirm: true });
+        setNotice(`${detail.name} dikembalikan dari Library di ${targetId}.`);
+        await reload();
+      } catch (caught) {
+        setError(errorInfo(caught));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [detail, confirm, reload],
+  );
+
   useEffect(() => {
     if (route.view !== "detail") {
       return;
@@ -450,6 +516,13 @@ export function App() {
               onBack={() => {
                 window.location.hash = "#/skills";
               }}
+              onRunDeps={() => {
+                void runDeps();
+              }}
+              onSync={(targetId) => {
+                void syncTarget(targetId);
+              }}
+              busyTarget={busy?.startsWith("sync::") === true ? busy.slice(6) : null}
             />
           )}
         </main>
