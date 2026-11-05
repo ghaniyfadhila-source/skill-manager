@@ -94,6 +94,23 @@ describe("GET /api/skills/:name", () => {
     expect(skillMd?.bytes).toBeGreaterThan(0);
   });
 
+  it("tidak mengirim provenance sebagai objek di detail skill", async () => {
+    const server = createTestServer();
+    await seedSkill(server.fs, {
+      files: { "SKILL.md": "---\nname: brainstorming\n---\n# Brainstorming\n" },
+    });
+
+    const response = await server.request("/api/skills/brainstorming");
+
+    const body = (await response.json()) as { skill: Record<string, unknown> };
+    // UI merender `provenance` sebagai teks; objek di sini akan membuat React
+    // melempar "Objects are not valid as a React child". Provenance sudah
+    // tersedia utuh di `source`, jadi field ini tidak boleh berupa objek.
+    const provenance = body.skill.provenance;
+    expect(provenance === undefined || typeof provenance === "string").toBe(true);
+    expect(body.skill.source).toBeTypeOf("object");
+  });
+
   it("menyertakan rencana dependensi tanpa menjalankan proses", async () => {
     const server = createTestServer();
     await seedSkill(server.fs, {

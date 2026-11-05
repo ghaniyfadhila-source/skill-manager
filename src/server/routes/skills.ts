@@ -161,7 +161,8 @@ export function registerSkillRoutes(app: Hono, deps: ServerDeps): void {
         ...(skill.license === undefined && inspected.license === undefined
           ? {}
           : { license: skill.license ?? inspected.license }),
-        provenance: skill.source,
+        // Provenance sudah utuh di `source` (dari summarizeSkill); field
+        // terpisah di sini hanya akan menduplikasi objek yang sama.
         files: flatten(inspected.files),
         ...(planned.ok ? { dependencies: planned.value } : {}),
       },
