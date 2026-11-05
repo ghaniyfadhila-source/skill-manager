@@ -15,7 +15,7 @@ import type {
   TargetResult,
 } from "../core/types.js";
 import { type PopulateTempDirectory, TEMP_PREFIX, writeDirectoryAtomic } from "../fs/atomic.js";
-import { guardStorePath, removeWithinStore } from "../fs/guard.js";
+import { guardStorePath } from "../fs/guard.js";
 import type { FileSystem, FsError } from "../fs/types.js";
 
 /** Aksi sinkron (spec §10.5). Tidak pernah berjalan otomatis. */

@@ -2,7 +2,6 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   createTestServer,
-  HOME,
   jsonRequest,
   ok,
   seedSkill,

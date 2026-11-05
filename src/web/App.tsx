@@ -5,6 +5,8 @@ import { useConfirmDialog, useRoute } from "./hooks.js";
 import type {
   DoctorReport,
   HarnessInfo,
+  InspectRequest,
+  InspectResult,
   InstallationView,
   SkillDetail,
   SkillSummary,
@@ -14,6 +16,7 @@ import { ConfirmDialog, ErrorBanner, Spinner } from "./ui.js";
 import { SkillDetailView } from "./views/detail.js";
 import { DoctorView } from "./views/doctor.js";
 import { HarnessesView } from "./views/harnesses.js";
+import { ImportView } from "./views/import.js";
 import { MatrixView } from "./views/matrix.js";
 import { SkillsView } from "./views/skills.js";
 
@@ -53,6 +56,7 @@ function describeResults(results: readonly TargetResult[], verb: string): string
 
 const NAV: readonly { readonly href: string; readonly label: string; readonly view: string }[] = [
   { href: "#/skills", label: "Skills", view: "skills" },
+  { href: "#/import", label: "Impor", view: "import" },
   { href: "#/matrix", label: "Matrix", view: "matrix" },
   { href: "#/harnesses", label: "Harnesses", view: "harnesses" },
   { href: "#/doctor", label: "Doctor", view: "doctor" },
@@ -67,6 +71,8 @@ export function App() {
   const [harnesses, setHarnesses] = useState<readonly HarnessInfo[]>([]);
   const [doctor, setDoctor] = useState<DoctorReport | null>(null);
   const [detail, setDetail] = useState<SkillDetail | null>(null);
+  const [staged, setStaged] = useState<InspectResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const [detailName, setDetailName] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -116,6 +122,43 @@ export function App() {
       void loadDoctor();
     }
   }, [route.view, loadDoctor]);
+
+  /**
+   * Unduh sumber ke staging lalu tampilkan pratinjaunya (spec §13). Belum ada
+   * yang masuk Library pada langkah ini, jadi membatalkan tidak meninggalkan
+   * sampah apa pun.
+   */
+  const inspectSource = useCallback(async (input: InspectRequest) => {
+    setBusy("inspect");
+    setImportError(null);
+    setStaged(null);
+    try {
+      setStaged(await api.inspect(input));
+    } catch (caught) {
+      setImportError(errorInfo(caught).message);
+    } finally {
+      setBusy(null);
+    }
+  }, []);
+
+  /** Impor dari staging setelah user melihat isinya; staging selalu dibuang server. */
+  const importStaged = useCallback(async () => {
+    if (staged?.stagingId === undefined) {
+      return;
+    }
+    setBusy("import");
+    setImportError(null);
+    try {
+      const skill = await api.importSkill({ stagingId: staged.stagingId });
+      setStaged(null);
+      setNotice(`${skill.name} diimpor ke Library. Pasang ke harness lewat layar Matrix.`);
+      await reload();
+    } catch (caught) {
+      setImportError(errorInfo(caught).message);
+    } finally {
+      setBusy(null);
+    }
+  }, [staged, reload]);
 
   useEffect(() => {
     if (route.view !== "detail") {
@@ -342,6 +385,23 @@ export function App() {
               harnesses={harnesses}
               onOpen={(name) => {
                 window.location.hash = `#/skills/${encodeURIComponent(name)}`;
+              }}
+            />
+          )}
+          {route.view === "import" && (
+            <ImportView
+              staged={staged}
+              busy={busy === "inspect"}
+              error={importError}
+              onInspect={(input) => {
+                void inspectSource(input);
+              }}
+              onImport={() => {
+                void importStaged();
+              }}
+              onReset={() => {
+                setStaged(null);
+                setImportError(null);
               }}
             />
           )}

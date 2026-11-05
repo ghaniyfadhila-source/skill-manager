@@ -8,7 +8,6 @@ import {
   fixture,
   HOME,
   installedPath,
-  ok,
   SKILL_NAME,
   setupSkill,
 } from "../maintenance/testing.js";

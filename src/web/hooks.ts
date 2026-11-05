@@ -6,6 +6,7 @@ export type Route =
   | { readonly view: "matrix" }
   | { readonly view: "harnesses" }
   | { readonly view: "doctor" }
+  | { readonly view: "import" }
   | { readonly view: "detail"; readonly skill: string };
 
 /** Routing sederhana lewat hash; tidak perlu dependensi router. */
@@ -21,6 +22,9 @@ export function parseRoute(hash: string): Route {
   }
   if (head === "doctor") {
     return { view: "doctor" };
+  }
+  if (head === "import") {
+    return { view: "import" };
   }
   if (head === "skills" && parts.length > 1) {
     return { view: "detail", skill: decodeURIComponent(parts.slice(1).join("/")) };

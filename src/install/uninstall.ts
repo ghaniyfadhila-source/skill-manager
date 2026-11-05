@@ -4,7 +4,7 @@ import type { Adapter } from "../adapters/manifest.js";
 import { SkillManagerError } from "../core/errors.js";
 import { contentHash } from "../core/hash.js";
 import { findLibrarySkill } from "../core/skill-lookup.js";
-import { loadState, saveState } from "../core/state.js";
+import { saveState } from "../core/state.js";
 import type {
   Installation,
   Skill,

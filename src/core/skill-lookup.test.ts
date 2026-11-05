@@ -1,6 +1,5 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { MemoryFileSystem } from "../fs/memory.js";
 import {
   captureError,
   DATA_ROOT,

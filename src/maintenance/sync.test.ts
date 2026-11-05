@@ -22,7 +22,6 @@ import {
   SKILL_NAME,
   setupSkill,
   storePath,
-  TIPS,
 } from "./testing.js";
 
 const USER_EDIT = "# versi pengguna\n";
