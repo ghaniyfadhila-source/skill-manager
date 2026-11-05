@@ -1,5 +1,5 @@
 {
-  "name": "@ghaniyfadhila-source/skill-manager",
+  "name": "@ghaniy_fadhil/skill-manager",
   "version": "0.1.0",
   "description": "Kelola satu Library skill AI dan pasang salinannya ke banyak harness dari browser lokal.",
   "type": "module",
