@@ -10,13 +10,21 @@ import { summarizeSkill } from "./skills.js";
 const syncSchema = z.object({
   skill: z.string().min(1),
   action: z.enum(["restore", "adopt"]),
+  /**
+   * Wajib `true`. Tanpa ini domain menolak dengan `confirmation_required`
+   * (AC-8: "tanpa konfirmasi tidak ada penimpaan"), sehingga gerbang
+   * konfirmasi tetap berlaku juga bagi pemanggil HTTP langsung — bukan hanya
+   * bagi UI yang kebetulan menampilkan dialog.
+   */
+  confirm: z.boolean().optional(),
 });
 
 /**
  * POST /api/sync (kontrak §7).
  *
- * confirm: true selalu dikirim: menekan tombol Sync di UI adalah konfirmasi
- * eksplisit user (spec §10.5, AC-8). Server tidak pernah menyinkron sendiri.
+ * Konfirmasi datang dari PEMANGGIL, bukan dari route: server tidak pernah
+ * menyinkron sendiri, dan route tidak boleh mengarang persetujuan yang tidak
+ * pernah diberikan.
  */
 export function registerSyncRoutes(app: Hono, deps: ServerDeps): void {
   app.post("/api/sync", async (c) => {
@@ -30,7 +38,7 @@ export function registerSyncRoutes(app: Hono, deps: ServerDeps): void {
       home: deps.home,
       skill: body.skill,
       action: body.action,
-      confirm: true,
+      confirm: body.confirm === true,
     });
 
     const { state } = await loadState(deps.fs, deps.dataRoot);

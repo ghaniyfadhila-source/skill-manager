@@ -104,7 +104,7 @@ Semua respons galat: `{ error: { code, message, details? } }` + status HTTP yang
 | GET | `/api/installations` | — | `{ installations: InstallationView[] }` |
 | POST | `/api/installations` | `{ skill, targets: string[], acknowledgeShared?: boolean }` | `{ results: TargetResult[] }` · `409` bila shared belum diakui |
 | DELETE | `/api/installations` | `{ skill, targets, force?: boolean, acknowledgeShared?: boolean }` | `{ results: TargetResult[] }` · `409` bila drift atau shared belum diakui |
-| POST | `/api/sync` | `{ skill, action: "restore"\|"adopt" }` | `{ skill }` |
+| POST | `/api/sync` | `{ skill, action: "restore"\|"adopt", confirm? }` | `{ skill }`; tanpa `confirm: true` → 409 `confirmation_required` (AC-8) |
 | GET | `/api/doctor` | — | `{ missing, unmanaged, tempDirs, stale, libraryMissing }` — `libraryMissing: [{ skillId, name, path }]` untuk skill yang isi Library-nya hilang |
 | POST | `/api/doctor/clean-temp` | — | `{ removed: string[] }` — hanya menghapus direktori berawalan `.skill-manager-tmp-` |
 | POST | `/api/deps/plan` | `{ skill }` | `{ commands: DepCommand[] }` |

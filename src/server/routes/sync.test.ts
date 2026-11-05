@@ -40,7 +40,7 @@ describe("POST /api/sync", () => {
     const server = createTestServer();
     const name = await installedSkill(server);
 
-    const response = await sync(server, { skill: name, action: "restore" });
+    const response = await sync(server, { skill: name, action: "restore", confirm: true });
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as { skill: SkillView };
@@ -49,12 +49,25 @@ describe("POST /api/sync", () => {
     expect(ok(await server.fs.readText(restored))).toBe("# brainstorming\n");
   });
 
+  it("menolak menimpa tanpa konfirmasi eksplisit (AC-8)", async () => {
+    const server = createTestServer();
+    const name = await installedSkill(server);
+    const modified = path.join(storePath("claude-code"), name, "SKILL.md");
+
+    const response = await sync(server, { skill: name, action: "restore" });
+
+    expect(response.status).toBe(409);
+    expect(((await response.json()) as ErrorBody).error.code).toBe("confirmation_required");
+    // Isi Store yang diubah user TIDAK boleh tersentuh.
+    expect(ok(await server.fs.readText(modified))).toBe("# diubah user\n");
+  });
+
   it("adopt memperbarui hash Library dari isi Store", async () => {
     const server = createTestServer();
     const name = await installedSkill(server);
     const before = (await (await server.request("/api/skills")).json()) as { skills: SkillView[] };
 
-    const response = await sync(server, { skill: name, action: "adopt" });
+    const response = await sync(server, { skill: name, action: "adopt", confirm: true });
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as { skill: SkillView };
@@ -62,14 +75,22 @@ describe("POST /api/sync", () => {
   });
 
   it("menolak action di luar restore/adopt dengan 400", async () => {
-    const response = await sync(createTestServer(), { skill: "brainstorming", action: "hapus" });
+    const response = await sync(createTestServer(), {
+      skill: "brainstorming",
+      action: "hapus",
+      confirm: true,
+    });
 
     expect(response.status).toBe(400);
     expect(((await response.json()) as ErrorBody).error.code).toBe("bad_request");
   });
 
   it("mengembalikan 404 skill_not_found untuk skill yang tidak ada", async () => {
-    const response = await sync(createTestServer(), { skill: "tidak-ada", action: "restore" });
+    const response = await sync(createTestServer(), {
+      skill: "tidak-ada",
+      action: "restore",
+      confirm: true,
+    });
 
     expect(response.status).toBe(404);
     expect(((await response.json()) as ErrorBody).error.code).toBe("skill_not_found");

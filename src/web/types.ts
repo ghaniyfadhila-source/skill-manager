@@ -154,6 +154,8 @@ export interface UninstallRequest {
 export interface SyncRequest {
   readonly skill: string;
   readonly action: "restore" | "adopt";
+  /** Wajib true; tanpa ini server menjawab 409 `confirmation_required` (AC-8). */
+  readonly confirm?: boolean;
 }
 
 export interface DepsRunResult {
