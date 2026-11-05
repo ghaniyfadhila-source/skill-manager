@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import packageJson from "../../package.json" with { type: "json" };
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 const CLI = join(ROOT, "dist", "cli.js");
@@ -90,7 +91,7 @@ describe("artifact dist", () => {
     const cliSource = readFileSync(CLI, "utf8");
 
     expect(cliSource.startsWith("#!/usr/bin/env node")).toBe(true);
-    expect(cliSource).toContain('"0.1.0"');
+    expect(cliSource).toContain(`"${packageJson.version}"`);
 
     const distFiles = readdirSync(join(ROOT, "dist"), { recursive: true }).map(String);
     expect(distFiles.some((file) => file.endsWith(".map"))).toBe(false);
@@ -128,7 +129,7 @@ describe("CLI serve lewat dist", () => {
         headers: { Cookie: cookie },
       });
       expect(health.status).toBe(200);
-      expect(await health.json()).toEqual({ ok: true, version: "0.1.0" });
+      expect(await health.json()).toEqual({ ok: true, version: packageJson.version });
       expect(existsSync(dataRoot)).toBe(false);
     } finally {
       if (child) {

@@ -1,6 +1,7 @@
 import { fileURLToPath } from "node:url";
 import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
+import packageJson from "../../package.json" with { type: "json" };
 import { SkillManagerError } from "../core/errors.js";
 import { createApp, handleAppError, SESSION_COOKIE } from "./app.js";
 
@@ -145,7 +146,7 @@ describe("health", () => {
     const response = await request("/api/health", { headers: { Cookie: COOKIE } });
 
     expect(response.status).toBe(200);
-    expect(await response.json()).toEqual({ ok: true, version: "0.1.0" });
+    expect(await response.json()).toEqual({ ok: true, version: packageJson.version });
   });
 
   it("membalas POST /api/health sebagai 404 JSON not_found", async () => {
