@@ -60,6 +60,20 @@ describe("NodeProcessRunner", () => {
     expect(elapsed).toBeLessThan(10000);
   });
 
+  it.skipIf(process.platform !== "win32")(
+    "mengubah EINVAL Windows (.cmd tanpa shell) menjadi FsResult, bukan exception",
+    async () => {
+      // execFile melempar SINKRON untuk shim .cmd; tanpa tangkapan di runner
+      // galat ini lolos sebagai exception dan berubah menjadi 500.
+      const result = await runner.run("C:\\Windows\\System32\\npm.cmd", ["--version"]);
+
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe("process_failed");
+      }
+    },
+  );
+
   it("menghormati cwd", async () => {
     const result = await runner.run(NODE, ["-e", "console.log(process.cwd())"], {
       cwd: process.cwd(),

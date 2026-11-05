@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import path from "node:path";
 import type { Harness } from "../core/types.js";
 import { DEFAULT_PROCESS_TIMEOUT_MS, type ProcessRunner } from "../fs/process.js";
 import type { FileSystem } from "../fs/types.js";
@@ -127,6 +128,14 @@ async function verifyBinary(
 ): Promise<string> {
   if (versionArgs.length === 0) {
     return `${binary} ditemukan`;
+  }
+
+  // Shim `.cmd`/`.bat`/`.ps1` adalah skrip shell, bukan executable. Node
+  // menolak menjalankannya tanpa `shell: true` (CVE-2024-27980), dan memakai
+  // shell di sini berarti argumen ikut diinterpolasi. Binary-nya tetap
+  // dilaporkan ditemukan; hanya verifikasi versinya yang dilewati.
+  if (context.platform === "win32" && /\.(cmd|bat|ps1)$/i.test(command)) {
+    return `${binary} ditemukan (skrip ${path.win32.extname(command).slice(1)}, versi tidak diverifikasi)`;
   }
 
   const label = `${binary} ${versionArgs.join(" ")}`;

@@ -50,6 +50,13 @@ Aturan impor:
 - `server`/`cli` boleh impor semuanya, tidak sebaliknya
 - `web` hanya bicara ke server lewat HTTP
 
+Catatan: modul domain yang tumbuh setelah kontrak awal (`library/` untuk impor dan
+staging, `install/` untuk memasang/mencabut, `maintenance/` untuk drift/sinkron/doctor,
+`deps/` untuk dependensi) berdiri di samping struktur di atas. Pemisahan ini disengaja:
+masing-masing adalah modul domain utuh, bukan bagian dari `core`. Aturan impor tidak
+berubah — semuanya boleh memakai `core` + `fs`, dan hanya `server`/`cli` yang boleh
+memakainya.
+
 ## 4. Konvensi kode
 
 - ESM, TypeScript `strict`, tanpa dependensi native.

@@ -6,6 +6,7 @@ import { TEMP_PREFIX } from "../fs/atomic.js";
 import { MemoryFileSystem } from "../fs/memory.js";
 import type { FsResult } from "../fs/types.js";
 import { cleanTempDirs, runDoctor } from "./doctor.js";
+import { computeDrift } from "./drift.js";
 import { syncSkill } from "./sync.js";
 import {
   captureError,
@@ -95,7 +96,7 @@ describe("syncSkill", () => {
     expect(await tempNames(setup, "claude-code")).toEqual([]);
   });
 
-  it("adopt memperbarui hash Library dan installedHash tanpa menyalin isi", async () => {
+  it("adopt menyalin isi Store ke Library lalu memperbarui hash keduanya", async () => {
     const setup = await fixture();
     await setupSkill(setup, ["claude-code/global"]);
     ok(await setup.fs.write(path.join(installedPath("claude-code"), "SKILL.md"), USER_EDIT));
@@ -111,11 +112,18 @@ describe("syncSkill", () => {
     const { state } = await loadState(setup.fs, DATA_ROOT);
     expect(state.library[0]?.contentHash).toBe(storeHash);
     expect(state.installations[0]?.installedHash).toBe(storeHash);
-    // Library tidak disalin ulang dari Store.
-    expect(ok(await setup.fs.readText(path.join(LIBRARY, SKILL_NAME, "SKILL.md")))).toBe(SKILL_MD);
-    expect(
-      ok(await setup.fs.readText(path.join(LIBRARY, SKILL_NAME, "references", "tips.md"))),
-    ).toBe(TIPS);
+
+    // Isi Library ikut berubah: hash yang tercatat harus menggambarkan isi yang
+    // benar-benar ada, bukan isi lama yang sudah tidak cocok.
+    expect(ok(await setup.fs.readText(path.join(LIBRARY, SKILL_NAME, "SKILL.md")))).toBe(USER_EDIT);
+    expect(ok(await contentHash(setup.fs, path.join(LIBRARY, SKILL_NAME)))).toBe(storeHash);
+
+    // Karena itu, pemasangan berikutnya dari Library tidak langsung drift.
+    const drift = await computeDrift(setup.fs, DATA_ROOT, {
+      adapters: setup.adapters,
+      home: HOME,
+    });
+    expect(drift.entries.filter((entry) => entry.behindLibrary === true)).toEqual([]);
   });
 
   it("restore default menjangkau semua Target yang tercatat", async () => {

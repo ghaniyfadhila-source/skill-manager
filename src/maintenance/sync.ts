@@ -183,6 +183,59 @@ function populateFrom(fs: FileSystem, source: string): PopulateTempDirectory {
   };
 }
 
+/**
+ * Ganti isi `destination` dengan hasil `populate` memakai pola backup-swap
+ * (spec §14): isi baru dibangun di staging lebih dulu, target lama dipindah ke
+ * backup, lalu ditukar. Bila penukaran gagal, backup dikembalikan sehingga
+ * target tidak pernah dalam keadaan hilang.
+ *
+ * Dipakai dua arah: restore menulis Store dari Library, adopt menulis Library
+ * dari Store. Keduanya memakai aturan yang sama persis.
+ */
+async function swapDirectory(
+  fs: FileSystem,
+  containerDir: string,
+  destination: string,
+  label: string,
+  populate: PopulateTempDirectory,
+): Promise<void> {
+  // 1. Isi baru dibangun di staging di dalam container yang sama; salinan lama
+  //    belum disentuh. Staging berada di volume yang sama agar rename atomik.
+  const staging = path.join(containerDir, `${TEMP_PREFIX}${label}-${randomUUID()}`);
+  const written = await writeDirectoryAtomic(fs, staging, populate);
+  if (!written.ok) {
+    throw fromFs(written.error);
+  }
+
+  // 2. Salinan lama dipindah ke backup.
+  const backup = path.join(containerDir, `${TEMP_PREFIX}backup-${randomUUID()}`);
+  const hadTarget = await fs.exists(destination);
+  if (hadTarget) {
+    const moved = await fs.rename(destination, backup);
+    if (!moved.ok) {
+      await fs.remove(staging, { recursive: true });
+      throw fromFs(moved.error);
+    }
+  }
+
+  // 3. staging -> target. Bila gagal, backup dikembalikan sehingga target
+  //    berisi isi lama seperti sebelum sinkron.
+  const swapped = await fs.rename(staging, destination);
+  if (!swapped.ok) {
+    if (hadTarget) {
+      await fs.rename(backup, destination);
+    }
+    await fs.remove(staging, { recursive: true });
+    throw fromFs(swapped.error);
+  }
+
+  // 4. Backup dibersihkan best-effort; sisa yang gagal dihapus (mis. crash)
+  //    memakai prefix yang sama sehingga `doctor` melaporkannya.
+  if (hadTarget) {
+    await fs.remove(backup, { recursive: true });
+  }
+}
+
 /** Kembalikan isi Store dari Library dengan pola backup-swap (spec §14). */
 async function restoreOne(
   fs: FileSystem,
@@ -199,42 +252,7 @@ async function restoreOne(
   }
   const target = guarded.value.path;
 
-  // 1. Isi baru dibangun di staging DI DALAM Store; salinan lama belum disentuh.
-  const staging = path.join(store.path, `${TEMP_PREFIX}restore-${randomUUID()}`);
-  const written = await writeDirectoryAtomic(fs, staging, populateFrom(fs, source));
-  if (!written.ok) {
-    throw fromFs(written.error);
-  }
-
-  // 2. Salinan lama dipindah ke backup. Rename direktori di dalam Store yang
-  //    sama atomik pada volume yang sama, jadi tidak ada jendela "target
-  //    hilang" selama penyalinan.
-  const backup = path.join(store.path, `${TEMP_PREFIX}backup-${randomUUID()}`);
-  const hadTarget = await fs.exists(target);
-  if (hadTarget) {
-    const moved = await fs.rename(target, backup);
-    if (!moved.ok) {
-      await removeWithinStore(fs, store.path, staging);
-      throw fromFs(moved.error);
-    }
-  }
-
-  // 3. staging -> target. Bila gagal, backup dikembalikan sehingga target
-  //    berisi isi lama seperti sebelum sinkron.
-  const swapped = await fs.rename(staging, target);
-  if (!swapped.ok) {
-    if (hadTarget) {
-      await fs.rename(backup, target);
-    }
-    await removeWithinStore(fs, store.path, staging);
-    throw fromFs(swapped.error);
-  }
-
-  // 4. Backup dibersihkan best-effort; sisa yang gagal dihapus (mis. crash)
-  //    memakai prefix yang sama sehingga `doctor` melaporkannya.
-  if (hadTarget) {
-    await removeWithinStore(fs, store.path, backup);
-  }
+  await swapDirectory(fs, store.path, target, "restore", populateFrom(fs, source));
 
   const hash = await contentHash(fs, target);
   if (!hash.ok) {
@@ -243,8 +261,22 @@ async function restoreOne(
   return { ...installation, installedHash: hash.value };
 }
 
-/** Adopsi isi Store sebagai kebenaran baru: Library dan installedHash ikut. */
-async function adoptOne(fs: FileSystem, skill: Skill, store: Store): Promise<string> {
+/**
+ * Adopsi isi Store sebagai kebenaran baru: isi Library DIGANTI dengan isi Store
+ * lalu hash-nya diperbarui.
+ *
+ * Menyalin isinya (bukan hanya hash-nya) penting: Library adalah sumber
+ * kebenaran, jadi `contentHash` harus selalu menggambarkan isi folder yang
+ * benar-benar ada. Bila hanya hash yang diperbarui, Library menyimpan isi lama
+ * sambil mengklaim hash baru, dan pemasangan berikutnya menulis isi lama yang
+ * hash-nya tidak cocok — drift muncul lagi tanpa ada yang mengubah apa pun.
+ */
+async function adoptOne(
+  fs: FileSystem,
+  dataRoot: string,
+  skill: Skill,
+  store: Store,
+): Promise<string> {
   const destination = path.join(store.path, skill.dirName);
   const stat = await fs.stat(destination);
   if (!stat.ok) {
@@ -261,7 +293,22 @@ async function adoptOne(fs: FileSystem, skill: Skill, store: Store): Promise<str
       details: { path: destination, storeId: store.id },
     });
   }
-  const hash = await contentHash(fs, destination);
+  // Isi Library diganti dengan isi Store memakai aturan tukar yang sama
+  // seperti restore, sehingga Library tidak pernah setengah terganti.
+  const libraryDir = libraryRoot(dataRoot);
+  const made = await fs.mkdir(libraryDir, { recursive: true });
+  if (!made.ok) {
+    throw fromFs(made.error);
+  }
+  await swapDirectory(
+    fs,
+    libraryDir,
+    path.join(libraryDir, skill.dirName),
+    "adopt",
+    populateFrom(fs, destination),
+  );
+
+  const hash = await contentHash(fs, path.join(libraryDir, skill.dirName));
   if (!hash.ok) {
     throw fromFs(hash.error);
   }
@@ -375,7 +422,7 @@ export async function syncSkill(options: SyncOptions): Promise<readonly TargetRe
         continue;
       }
 
-      const hash = await adoptOne(fs, skill, entry.store);
+      const hash = await adoptOne(fs, dataRoot, skill, entry.store);
       if (libraryHash !== undefined && libraryHash !== hash) {
         throw new SkillManagerError({
           code: "adopt_conflict",
