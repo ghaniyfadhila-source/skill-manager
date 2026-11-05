@@ -20,7 +20,7 @@ berubah, aplikasi bisa memberi tahu dan mengembalikannya.
 - **Periksa kesehatan** lewat `doctor`: salinan hilang, direktori asing, sisa berkas sementara.
 - **Kelola dependensi** npm/uv — hanya ditampilkan dan dijalankan setelah kamu setujui.
 
-Semua berjalan lokal di `127.0.0.1`. Tidak ada server, tidak ada akun, tidak ada telemetri.
+Semua berjalan lokal di `127.0.0.1`. Tidak ada server daring, tidak ada akun, tidak ada telemetri.
 
 ## Pasang
 
@@ -82,8 +82,8 @@ Dua hal yang sengaja tidak dilakukan otomatis:
 |---|---|---|
 | Claude Code | managed | `~/.claude/skills` |
 | opencode | managed | `~/.config/opencode/skills` |
-| Antigravity | managed | `~/.gemini/config/skills` |
-| Shared | managed | `~/.agents/skills` |
+| Google Antigravity | managed | `~/.gemini/config/skills` |
+| Shared (`shared`) | managed | `~/.agents/skills` |
 | Hermes, Goose, Crush, Devin | hanya deteksi | — |
 
 **Managed** berarti skill bisa dipasang ke sana. **Hanya deteksi** berarti aplikasi
