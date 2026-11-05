@@ -112,8 +112,11 @@ staging/    unduhan sementara saat pratinjau impor
 deps/       dependensi terisolasi per skill
 ```
 
-Cakram adalah kebenaran, `state.json` hanya indeks. Kalau `state.json` rusak, aplikasi
-menyimpannya sebagai `state.json.corrupt` dan memulai ulang dari isi folder.
+Cakram adalah kebenaran, `state.json` hanya indeks. Kalau `state.json` rusak atau tidak
+terbaca, aplikasi **tidak** menghapus apa pun: berkas lama diganti nama menjadi
+`state.json.corrupt` dan diganti state kosong. Folder di `library/` tetap utuh, tapi
+indeksnya kosong — **belum ada perintah untuk membangun ulang indeks dari isi folder**
+di v0.1. Simpan salinan `state.json` kalau kamu punya banyak skill.
 
 ## Antarmuka web
 
@@ -171,6 +174,9 @@ Ini yang **belum** ada, supaya tidak ada kejutan:
 - Satu `state.json` tunggal; belum ada migrasi skema otomatis.
 - `doctor` melaporkan isi Library yang hilang, tapi tidak bisa memulihkannya dari Store —
   Store adalah salinan, bukan sumber.
+- Kalau `state.json` rusak, indeks diganti kosong dan **tidak** dibangun ulang otomatis dari
+  isi `library/`. Folder skill tetap ada di disk, tapi aplikasi belum bisa memakainya lagi
+  sampai ada perintah rebuild (belum ada di v0.1).
 
 ## Lisensi
 
