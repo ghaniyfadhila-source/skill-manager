@@ -204,9 +204,16 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
     expect(await harness.fs.exists(harness.storeSkillPath(SHARED_STORE, skill.name))).toBe(true);
   });
 
-  it("AC-7 cabut menghapus salinan, Library utuh, dan pasang ulang berhasil tanpa jaringan", async () => {
-    const targets = ["claude-code/global", "opencode/global"];
-    await install(targets);
+  it("AC-7 cabut menghapus salinan di SEMUA Target, Library utuh, dan pasang ulang berhasil", async () => {
+    // Diturunkan dari katalog agar Target baru ikut teruji, sama seperti AC-4.
+    const managed = adapters.filter(
+      (adapter) => adapterCapability(adapter) === "managed" && adapter.stores.length > 0,
+    );
+    const targets = managed.map((adapter) => `${adapter.id}/global`);
+    const storeIds = managed.flatMap((adapter) => adapter.stores.map((store) => store.path));
+    expect(targets).toHaveLength(4);
+
+    await install(targets, true);
     const libraryHash = ok(await contentHash(harness.fs, harness.libraryDir(skill.name)));
 
     const removed = await uninstallSkill({
@@ -215,12 +222,15 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
       adapters,
       skill: skill.name,
       targets,
+      acknowledgeShared: true,
       home: harness.home,
     });
 
-    expect(removed.map((result) => result.ok)).toEqual([true, true]);
-    for (const storeDir of [CLAUDE_STORE, OPENCODE_STORE]) {
-      expect(await harness.fs.exists(harness.storeSkillPath(storeDir, skill.name))).toBe(false);
+    expect(removed.map((result) => [result.targetId, result.ok])).toEqual(
+      targets.map((targetId) => [targetId, true]),
+    );
+    for (const storeId of storeIds) {
+      expect(await harness.fs.exists(harness.storeSkillPath(storeId, skill.name))).toBe(false);
     }
 
     const afterRemoval = await loadState(harness.fs, harness.dataRoot);
@@ -231,10 +241,12 @@ describe("AC-4..AC-7 siklus pasang dan cabut", () => {
       ok(await harness.fs.readText(path.join(harness.libraryDir(skill.name), "SKILL.md"))),
     ).toContain("tipeC-python");
 
-    const reinstalled = await install(targets);
-    expect(reinstalled.map((result) => result.ok)).toEqual([true, true]);
-    expect(
-      ok(await contentHash(harness.fs, harness.storeSkillPath(CLAUDE_STORE, skill.name))),
-    ).toBe(libraryHash);
+    const reinstalled = await install(targets, true);
+    expect(reinstalled.map((result) => result.ok)).toEqual([true, true, true, true]);
+    for (const storeId of storeIds) {
+      expect(ok(await contentHash(harness.fs, harness.storeSkillPath(storeId, skill.name)))).toBe(
+        libraryHash,
+      );
+    }
   });
 });
