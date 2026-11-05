@@ -8,14 +8,13 @@ import { SkillsView } from "./views/skills.js";
 
 const noop = (): void => {};
 
-describe("AC-11 — Skills", () => {
+describe("§12 UI — Skills", () => {
   it("menampilkan empty state saat Library kosong", () => {
     const html = renderToStaticMarkup(
       <SkillsView skills={[]} installations={[]} harnesses={[]} onOpen={noop} />,
     );
 
     expect(html).toContain("Belum ada skill");
-    expect(html).not.toBe("");
   });
 
   it("menampilkan chip Target dan status drift untuk skill terpasang", () => {
@@ -42,7 +41,7 @@ describe("AC-11 — Skills", () => {
   });
 });
 
-describe("AC-11 — Matrix", () => {
+describe("§12 UI — Matrix", () => {
   it("menjelaskan bahwa belum ada Target managed saat harness belum terdeteksi", () => {
     const html = renderToStaticMarkup(
       <MatrixView
@@ -88,7 +87,7 @@ describe("AC-11 — Matrix", () => {
   });
 });
 
-describe("AC-11 — Harnesses", () => {
+describe("§12 UI — Harnesses", () => {
   it("menampilkan empty state dan tombol Recheck saat tidak ada harness", () => {
     const html = renderToStaticMarkup(
       <HarnessesView harnesses={[]} onRecheck={noop} onConnect={noop} />,
@@ -123,7 +122,7 @@ describe("AC-11 — Harnesses", () => {
   });
 });
 
-describe("AC-11 — Doctor", () => {
+describe("§12 UI — Doctor", () => {
   it("menampilkan ringkasan bersih saat laporan kosong", () => {
     const html = renderToStaticMarkup(
       <DoctorView

@@ -13,15 +13,8 @@ export interface DataRootOptions {
   readonly homedir?: string;
 }
 
-export interface DataRootPaths {
-  readonly root: string;
-  readonly library: string;
-  readonly adapters: string;
-  readonly deps: string;
-  readonly stateFile: string;
-}
-
-function platformPath(platform: NodeJS.Platform): path.PlatformPath {
+/** Path flavor sesuai platform; dipakai modul lain agar pemisah path benar di test. */
+export function platformPath(platform: NodeJS.Platform): path.PlatformPath {
   return platform === "win32" ? path.win32 : path.posix;
 }
 
@@ -78,17 +71,4 @@ export function depsRoot(dataRoot: string, platform: NodeJS.Platform = process.p
 
 export function statePath(dataRoot: string, platform: NodeJS.Platform = process.platform): string {
   return platformPath(platform).join(dataRoot, "state.json");
-}
-
-export function dataRootPaths(
-  dataRoot: string,
-  platform: NodeJS.Platform = process.platform,
-): DataRootPaths {
-  return {
-    root: dataRoot,
-    library: libraryRoot(dataRoot, platform),
-    adapters: adaptersRoot(dataRoot, platform),
-    deps: depsRoot(dataRoot, platform),
-    stateFile: statePath(dataRoot, platform),
-  };
 }

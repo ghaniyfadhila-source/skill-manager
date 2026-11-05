@@ -177,10 +177,6 @@ export function checkHost(hostHeader: string | undefined): HostCheck {
   return LOOPBACK_HOSTNAMES.has(hostname) ? "ok" : 403;
 }
 
-export function isLoopbackHost(hostHeader: string | undefined): boolean {
-  return checkHost(hostHeader) === "ok";
-}
-
 function isSpaNavigation(c: Context): boolean {
   if (c.req.method !== "GET" && c.req.method !== "HEAD") {
     return false;

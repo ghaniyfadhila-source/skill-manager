@@ -143,6 +143,8 @@ describe("loadAdapters — manifest pengguna", () => {
     const catalog = await loadAdapters({ fs: new MemoryFileSystem(), dataRoot: DATA_ROOT });
 
     expect(catalog.problems).toEqual([]);
-    expect(catalog.adapters.length).toBeGreaterThan(0);
+    // Delapan manifest bawaan (kontrak §6); angka tetap agar manifest yang
+    // hilang dari bundel ketahuan, bukan sekadar "lebih dari nol".
+    expect(catalog.adapters).toHaveLength(8);
   });
 });

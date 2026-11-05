@@ -2,6 +2,7 @@ import path from "node:path";
 import { depsRoot } from "../core/paths.js";
 import type { DepCommand, DepKind } from "../core/types.js";
 import { type FileSystem, type FsResult, fsErr, fsOk } from "../fs/types.js";
+import { type Frontmatter, parseFrontmatter } from "../library/frontmatter.js";
 
 /** Nama manifest yang dikenali (spec §10.6 poin 1). */
 const PACKAGE_JSON = "package.json";
@@ -61,27 +62,25 @@ function splitList(value: string): string[] {
 }
 
 /**
- * SEMENTARA: ticket 04 belum menyediakan parser frontmatter kanonik di branch
- * ini. Parser minimal ini hanya membaca `metadata.requires`; ganti dengan
- * parser ticket 04 begitu tersedia.
+ * Petunjuk dependensi dari `metadata.requires` (spec §10.6 butir 1).
+ *
+ * Memakai parser frontmatter kanonik agar hanya ada satu penafsir YAML di
+ * proyek ini. Frontmatter yang tidak valid bukan alasan menggagalkan deteksi
+ * dependensi — skill tetap bisa dipasang, hanya tanpa petunjuk tambahan.
  */
 function metadataRequires(text: string): string[] {
-  const body = /^---\r?\n([\s\S]*?)\r?\n---/.exec(text)?.[1];
-  if (!body) {
+  let parsed: Frontmatter;
+  try {
+    parsed = parseFrontmatter(text);
+  } catch {
     return [];
   }
-  let inMetadata = false;
-  for (const line of body.split(/\r?\n/)) {
-    if (/^[A-Za-z0-9_-]+\s*:/.test(line)) {
-      inMetadata = /^metadata\s*:/.test(line);
-      continue;
-    }
-    const requires = /^\s+requires\s*:\s*(.+)$/.exec(line);
-    if (inMetadata && requires?.[1]) {
-      return splitList(requires[1]);
-    }
+  const metadata = parsed.data.metadata;
+  if (metadata === undefined || typeof metadata === "string") {
+    return [];
   }
-  return [];
+  const requires = metadata.requires;
+  return requires === undefined ? [] : splitList(requires);
 }
 
 function hintKinds(tokens: readonly string[]): Set<DepKind> {

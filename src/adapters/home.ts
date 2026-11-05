@@ -1,9 +1,7 @@
-import path from "node:path";
+import { platformPath } from "../core/paths.js";
 
-/** Path flavor sesuai platform, agar test bisa memeriksa bentuk path tanpa salah pemisah. */
-export function platformPath(platform: NodeJS.Platform): path.PlatformPath {
-  return platform === "win32" ? path.win32 : path.posix;
-}
+// Satu implementasi saja: flavors path ada di core/paths.ts.
+export { platformPath };
 
 /**
  * Ekspansi awalan "~" pada path manifest (spec §10.1). Hanya awalan yang

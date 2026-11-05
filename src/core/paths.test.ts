@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
   adaptersRoot,
   DATA_ROOT_ENV,
-  dataRootPaths,
   depsRoot,
   libraryRoot,
   resolveDataRoot,
@@ -92,13 +91,6 @@ describe("path turunan data root", () => {
     expect(adaptersRoot(root)).toBe(path.join(root, "adapters"));
     expect(depsRoot(root)).toBe(path.join(root, "deps"));
     expect(statePath(root)).toBe(path.join(root, "state.json"));
-    expect(dataRootPaths(root)).toEqual({
-      root,
-      library: path.join(root, "library"),
-      adapters: path.join(root, "adapters"),
-      deps: path.join(root, "deps"),
-      stateFile: path.join(root, "state.json"),
-    });
   });
 
   it("memakai pemisah path sesuai platform yang disuntikkan", () => {
