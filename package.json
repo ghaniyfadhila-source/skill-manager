@@ -9,7 +9,7 @@
   },
   "packageManager": "pnpm@12.8.1",
   "bin": {
-    "skill-manager": "./dist/cli.js"
+    "skill-manager": "dist/cli.js"
   },
   "files": [
     "dist"
