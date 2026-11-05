@@ -1,0 +1,26 @@
+{
+  "id": "antigravity",
+  "name": "Google Antigravity",
+  "tier": "managed",
+  "detect": {
+    "paths": ["~/.gemini/config"],
+    "binaries": ["agy"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [
+    {
+      "scope": "global",
+      "path": "~/.gemini/config/skills",
+      "exclusive": true
+    }
+  ],
+  "readsShared": false,
+  "connect": {
+    "installUrl": "https://antigravity.google/download",
+    "docsUrl": "https://antigravity.google/docs/skills"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://antigravity.google/docs/skills"
+  }
+}

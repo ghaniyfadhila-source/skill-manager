@@ -1,0 +1,21 @@
+{
+  "id": "hermes",
+  "name": "Hermes",
+  "tier": "detected-only",
+  "detect": {
+    "paths": ["~/.hermes"],
+    "binaries": ["hermes"],
+    "versionArgs": ["--version"]
+  },
+  "stores": [],
+  "readsShared": false,
+  "connect": {
+    "installUrl": "https://github.com/NousResearch/hermes-agent",
+    "docsUrl": "https://github.com/NousResearch/hermes-agent"
+  },
+  "verified": {
+    "at": "2026-11-05",
+    "source": "https://github.com/NousResearch/hermes-agent/blob/ca705db/hermes_constants.py#L51-L58"
+  },
+  "notes": "Detected-only (roadmap v0.2). Home aktif Hermes di Windows adalah %LOCALAPPDATA%\\hermes\\skills; ~/.hermes/skills hanya dipakai untuk deteksi, bukan Store."
+}

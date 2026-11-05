@@ -1,0 +1,28 @@
+async function findSkill(
+  fs: FileSystem,
+  dataRoot: string,
+  name: string,
+): Promise<{ skill: Skill; state: StateFile }> {
+  const { state } = await loadState(fs, dataRoot);
+  const skill = state.library.find((entry) => entry.name === name || entry.id === name);
+  if (skill === undefined) {
+    throw new SkillManagerError({
+      code: "skill_not_found",
+      message: `Skill "${name}" tidak ada di Library.`,
+    });
+  }
+  return { skill, state };
+}
+
+type PlanEntry =
+  | { readonly targetId: string; readonly store: Store; readonly error?: undefined }
+  | { readonly targetId: string; readonly store?: undefined; readonly error: TargetError };
+
+function resolvePlanEntry(
+  options: UninstallOptions,
+  targetId: string,
+  stores: ReadonlyMap<string, Store>,
+): PlanEntry {
+  try {
+    const target = resolveTarget(options.adapters, targetId);
+    const store = stores.get(target.storeId);
