@@ -531,7 +531,6 @@ export function App() {
       {confirm.prompt !== null && (
         <ConfirmDialog
           prompt={confirm.prompt}
-          busy={busy !== null}
           onConfirm={() => {
             confirm.answer(true);
           }}

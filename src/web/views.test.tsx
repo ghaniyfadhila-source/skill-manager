@@ -1,6 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { handleDialogKey } from "./ui.js";
+import { uninstallPrompt } from "./confirm.js";
+import { ConfirmDialog, handleDialogKey } from "./ui.js";
 import { SkillDetailView } from "./views/detail.js";
 import { DoctorView } from "./views/doctor.js";
 import { HarnessesView } from "./views/harnesses.js";
@@ -139,6 +140,21 @@ describe("§12 UI — Doctor", () => {
 });
 
 describe("dialog konfirmasi", () => {
+  it("tombol konfirmasi selalu bisa diklik, termasuk dialog cabut", () => {
+    // Regresi: dialog dulu menerima prop `busy` yang terisi state App sebelum
+    // konfirmasi, sehingga tombol "Ya, cabut" disabled dan cabut mustahil.
+    const html = renderToStaticMarkup(
+      <ConfirmDialog
+        prompt={uninstallPrompt("alpha", "claude-code/global", "~/.claude/skills")}
+        onConfirm={noop}
+        onCancel={noop}
+      />,
+    );
+
+    expect(html).toContain("Ya, cabut alpha");
+    expect(html).not.toContain("disabled");
+  });
+
   it("menutup dialog dengan tombol Escape", () => {
     let closed = 0;
     const handled = handleDialogKey({ key: "Escape", preventDefault: noop }, () => {

@@ -93,14 +93,18 @@ export function StatusMark({ problem }: { problem: boolean }) {
   return <span aria-hidden="true">{problem ? "!" : "\u2713"}</span>;
 }
 
+/**
+ * Dialog konfirmasi. Sengaja tanpa prop `busy`: dialog selalu ditutup sebelum
+ * aksi dijalankan (`answer()` -> `setPrompt(null)`), jadi tombol confirm tidak
+ * boleh pernah disabled — dulu prop itu terisi dari state `busy` milik App dan
+ * membuat tombol "Ya, cabut" mati tepat saat dialog muncul.
+ */
 export function ConfirmDialog({
   prompt,
-  busy = false,
   onConfirm,
   onCancel,
 }: {
   prompt: ConfirmPrompt;
-  busy?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -153,9 +157,8 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            disabled={busy}
             onClick={onConfirm}
-            className="rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400 disabled:opacity-60"
+            className="rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-amber-400"
           >
             {prompt.confirmLabel}
           </button>
