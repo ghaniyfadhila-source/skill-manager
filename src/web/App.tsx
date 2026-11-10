@@ -3,6 +3,7 @@ import { createApi, isApiError } from "./api.js";
 import { type ConfirmPrompt, confirmAndRun, uninstallPrompt } from "./confirm.js";
 import { useConfirmDialog, useRoute } from "./hooks.js";
 import type {
+  CatalogItem,
   DoctorReport,
   HarnessInfo,
   InspectRequest,
@@ -13,6 +14,7 @@ import type {
   TargetResult,
 } from "./types.js";
 import { ConfirmDialog, ErrorBanner, Spinner } from "./ui.js";
+import { CatalogView } from "./views/catalog.js";
 import { SkillDetailView } from "./views/detail.js";
 import { DoctorView } from "./views/doctor.js";
 import { HarnessesView } from "./views/harnesses.js";
@@ -57,6 +59,7 @@ function describeResults(results: readonly TargetResult[], verb: string): string
 const NAV: readonly { readonly href: string; readonly label: string; readonly view: string }[] = [
   { href: "#/skills", label: "Skills", view: "skills" },
   { href: "#/import", label: "Impor", view: "import" },
+  { href: "#/catalog", label: "Katalog", view: "catalog" },
   { href: "#/matrix", label: "Matrix", view: "matrix" },
   { href: "#/harnesses", label: "Harnesses", view: "harnesses" },
   { href: "#/doctor", label: "Doctor", view: "doctor" },
@@ -81,6 +84,9 @@ export function App() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [doctorLoading, setDoctorLoading] = useState(false);
+  const [catalog, setCatalog] = useState<readonly CatalogItem[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -122,6 +128,24 @@ export function App() {
       void loadDoctor();
     }
   }, [route.view, loadDoctor]);
+
+  const loadCatalog = useCallback(async () => {
+    setCatalogLoading(true);
+    setCatalogError(null);
+    try {
+      setCatalog(await api.catalog());
+    } catch (caught) {
+      setCatalogError(errorInfo(caught).message);
+    } finally {
+      setCatalogLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (route.view === "catalog" && catalog.length === 0) {
+      void loadCatalog();
+    }
+  }, [route.view, catalog.length, loadCatalog]);
 
   /**
    * Unduh sumber ke staging lalu tampilkan pratinjaunya (spec §13). Belum ada
@@ -224,6 +248,78 @@ export function App() {
       }
     },
     [detail, confirm, reload],
+  );
+
+  /** Pasang skill katalog: unduh -> impor (bila perlu) -> pasang ke target pilihan. */
+  const installFromCatalog = useCallback(
+    async (item: CatalogItem, targetId: string) => {
+      if (targetId === "") {
+        setNotice("Pilih harness dulu sebelum memasang.");
+        return;
+      }
+      setBusy(`catalog::${item.id}`);
+      setNotice(null);
+      try {
+        const name = item.name;
+        const sudahDiimpor = skills.some((skill) => skill.name === name);
+
+        if (!sudahDiimpor) {
+          const inspected = await api.inspect({
+            type: "git",
+            url: `https://github.com/${item.owner}/${item.repo}.git`,
+            subdir: item.subdir,
+          });
+          if (inspected.stagingId === undefined) {
+            throw new Error("Server tidak mengembalikan stagingId untuk pratinjau katalog.");
+          }
+
+          const files = inspected.files ?? [];
+          const approved = await confirm.ask({
+            kind: "destructive",
+            title: `Impor ${name}?`,
+            message:
+              "Skill berikut akan diunduh dari GitHub dan diimpor ke Library, lalu dipasang ke target pilihan.",
+            details: [
+              `Repo: ${item.owner}/${item.repo}`,
+              `Target: ${targetId}`,
+              `${files.length} berkas`,
+              ...(inspected.license === undefined ? [] : [`Lisensi: ${inspected.license}`]),
+              ...(inspected.risky?.messages ?? []),
+            ],
+            confirmLabel: "Impor lalu pasang",
+          });
+          if (!approved) {
+            setNotice(`Dibatalkan: ${name} tidak diimpor.`);
+            return;
+          }
+          await api.importSkill({ stagingId: inspected.stagingId });
+        }
+
+        const results = await confirmAndRun(
+          "install",
+          (options) =>
+            api.install({
+              skill: name,
+              targets: [targetId],
+              acknowledgeShared: options.acknowledgeShared,
+            }),
+          confirm.ask,
+          name,
+        );
+
+        if (results === null) {
+          setNotice(`Dibatalkan: ${name} tidak dipasang ke ${targetId}.`);
+          return;
+        }
+        setNotice(describeResults(results, "pasang"));
+        await reload();
+      } catch (caught) {
+        setError(errorInfo(caught));
+      } finally {
+        setBusy(null);
+      }
+    },
+    [skills, confirm, reload],
   );
 
   useEffect(() => {
@@ -468,6 +564,18 @@ export function App() {
               onReset={() => {
                 setStaged(null);
                 setImportError(null);
+              }}
+            />
+          )}
+          {route.view === "catalog" && (
+            <CatalogView
+              items={catalog}
+              harnesses={harnesses}
+              loading={catalogLoading}
+              error={catalogError}
+              busyKey={busy}
+              onInstall={(item, targetId) => {
+                void installFromCatalog(item, targetId);
               }}
             />
           )}

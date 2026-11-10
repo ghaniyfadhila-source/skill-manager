@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { uninstallPrompt } from "./confirm.js";
 import { ConfirmDialog, handleDialogKey } from "./ui.js";
+import { CatalogView } from "./views/catalog.js";
 import { SkillDetailView } from "./views/detail.js";
 import { DoctorView } from "./views/doctor.js";
 import { HarnessesView } from "./views/harnesses.js";
@@ -263,5 +264,76 @@ describe("AC-9 — Dependensi", () => {
 
     expect(html).toContain("Tidak ada dependensi");
     expect(html).not.toContain("Jalankan dependensi");
+  });
+});
+
+const CLAUDE_MANAGED = {
+  id: "claude-code",
+  name: "Claude Code",
+  capability: "managed" as const,
+  detected: true,
+  detectionReasons: [],
+  targets: [{ id: "claude-code/global", label: "Claude Code" }],
+};
+
+describe("§12 UI — Katalog", () => {
+  it("menampilkan repo, nama skill, deskripsi, bintang, dan tombol Pasang", () => {
+    const html = renderToStaticMarkup(
+      <CatalogView
+        items={[
+          {
+            id: "anthropics/skills/docx",
+            name: "docx",
+            description: "Buat dokumen Word.",
+            owner: "anthropics",
+            repo: "skills",
+            subdir: "skills/docx",
+            url: "https://github.com/anthropics/skills",
+            stars: 191456,
+            installed: false,
+          },
+        ]}
+        harnesses={[CLAUDE_MANAGED]}
+        loading={false}
+        error={null}
+        busyKey={null}
+        onInstall={noop}
+      />,
+    );
+
+    expect(html).toContain("docx");
+    expect(html).toContain("anthropics/skills");
+    expect(html).toContain("Buat dokumen Word.");
+    expect(html).toContain("191.456 bintang");
+    expect(html).toContain("Pasang");
+    expect(html).toContain("claude-code/global");
+  });
+
+  it("menandai skill terpasang dan menonaktifkan Pasang tanpa Target managed", () => {
+    const html = renderToStaticMarkup(
+      <CatalogView
+        items={[
+          {
+            id: "obra/superpowers/writing-plans",
+            name: "writing-plans",
+            description: "Susun plan.",
+            owner: "obra",
+            repo: "superpowers",
+            subdir: "skills/writing-plans",
+            url: "https://github.com/obra/superpowers",
+            installed: true,
+          },
+        ]}
+        harnesses={[]}
+        loading={false}
+        error={null}
+        busyKey={null}
+        onInstall={noop}
+      />,
+    );
+
+    expect(html).toContain("terpasang");
+    expect(html).toContain("Belum ada harness managed");
+    expect(html).toContain("disabled");
   });
 });

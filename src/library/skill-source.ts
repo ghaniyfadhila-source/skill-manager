@@ -8,6 +8,7 @@
  */
 import path from "node:path";
 import { SkillManagerError } from "../core/errors.js";
+import { isPathInside } from "../fs/guard.js";
 import type { FileSystem } from "../fs/types.js";
 import { parseFrontmatter } from "./frontmatter.js";
 import { SKILL_FILE_NAME } from "./import-folder.js";
@@ -18,7 +19,8 @@ export type SkillSourceErrorCode =
   | "skill_md_ambiguous"
   | "source_unreadable"
   | "frontmatter_invalid"
-  | "name_missing";
+  | "name_missing"
+  | "invalid_subdir";
 
 function sourceError(
   code: SkillSourceErrorCode,
@@ -79,6 +81,50 @@ export async function findSkillDirectory(fs: FileSystem, root: string): Promise<
     );
   }
   return candidates[0] as string;
+}
+
+/**
+ * Pilih folder skill: `subdir` eksplisit (satu path relatif di dalam `root`)
+ * atau, bila kosong, autodeteksi `findSkillDirectory`. Dipakai katalog untuk
+ * menunjuk satu skill di dalam monorepo (mis. `skills/docx`).
+ */
+export async function resolveSkillDirectory(
+  fs: FileSystem,
+  root: string,
+  subdir?: string,
+): Promise<string> {
+  if (subdir === undefined || subdir === "") {
+    return findSkillDirectory(fs, root);
+  }
+
+  const ok =
+    !path.isAbsolute(subdir) &&
+    !subdir.includes("\\") &&
+    !subdir.split("/").some((segment) => segment === "" || segment === "." || segment === "..");
+  if (!ok) {
+    throw sourceError(
+      "invalid_subdir",
+      `Subfolder skill tidak valid: "${subdir}". Gunakan satu path relatif di dalam repositori.`,
+      { subdir },
+    );
+  }
+
+  const dir = path.join(root, subdir);
+  if (!isPathInside(root, dir)) {
+    throw sourceError(
+      "invalid_subdir",
+      `Subfolder skill menunjuk keluar repositori: "${subdir}".`,
+      { subdir },
+    );
+  }
+  if (!(await hasSkillFile(fs, dir))) {
+    throw sourceError(
+      "skill_md_missing",
+      `Subfolder "${subdir}" tidak berisi ${SKILL_FILE_NAME}.`,
+      { subdir },
+    );
+  }
+  return dir;
 }
 
 /**

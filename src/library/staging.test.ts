@@ -122,6 +122,84 @@ describe("stageFromGit", () => {
     const staging = await fs.readdir(path.join(DATA_ROOT, STAGING_DIR_NAME));
     expect(staging.ok ? staging.value.length : 0).toBe(0);
   });
+
+  const DOCX_MD = ["---", "name: docx", "description: buat dokumen", "---", "", "# Docx", ""].join(
+    "\n",
+  );
+
+  it("memakai subdir untuk menunjuk satu skill di dalam monorepo", async () => {
+    const fs = await seeded();
+    await put(fs, path.join(cloneDest(), "skills", "docx", "SKILL.md"), DOCX_MD);
+    await put(fs, path.join(cloneDest(), "skills", "pdf", "SKILL.md"), SKILL_MD);
+
+    const runner = new FakeProcessRunner();
+    runner.on("git", ["clone", "--depth", "1", URL, cloneDest()], { type: "exit", code: 0 });
+    runner.on("git", ["rev-parse", "HEAD"], { type: "exit", code: 0, stdout: `${SHA}\n` });
+
+    const staged = await stageFromGit(
+      fs,
+      DATA_ROOT,
+      runner,
+      { url: URL, subdir: "skills/docx" },
+      options,
+    );
+
+    expect(staged.suggestedName).toBe("docx");
+    expect(staged.inspect.files.map((node) => node.name)).toContain("SKILL.md");
+  });
+
+  it("impor tahap kedua menghormati subdir yang tersimpan", async () => {
+    const fs = await seeded();
+    await put(fs, path.join(cloneDest(), "skills", "docx", "SKILL.md"), DOCX_MD);
+    await put(fs, path.join(cloneDest(), "skills", "pdf", "SKILL.md"), SKILL_MD);
+
+    const runner = new FakeProcessRunner();
+    runner.on("git", ["clone", "--depth", "1", URL, cloneDest()], { type: "exit", code: 0 });
+    runner.on("git", ["rev-parse", "HEAD"], { type: "exit", code: 0, stdout: `${SHA}\n` });
+
+    const staged = await stageFromGit(
+      fs,
+      DATA_ROOT,
+      runner,
+      { url: URL, subdir: "skills/docx" },
+      options,
+    );
+    const result = await importStaged(fs, DATA_ROOT, staged.stagingId, { now: fixedNow });
+
+    expect(result.skill.name).toBe("docx");
+    expect(result.skill.source).toEqual({ type: "git", url: URL, ref: "HEAD", commit: SHA });
+  });
+
+  it("menolak subdir tanpa SKILL.md", async () => {
+    const fs = await seeded();
+    await put(fs, path.join(cloneDest(), "skills", "docx", "SKILL.md"), DOCX_MD);
+
+    const runner = new FakeProcessRunner();
+    runner.on("git", ["clone", "--depth", "1", URL, cloneDest()], { type: "exit", code: 0 });
+    runner.on("git", ["rev-parse", "HEAD"], { type: "exit", code: 0, stdout: `${SHA}\n` });
+
+    await expect(
+      stageFromGit(fs, DATA_ROOT, runner, { url: URL, subdir: "skills/pdf" }, options),
+    ).rejects.toThrow(/tidak berisi SKILL\.md/);
+  });
+
+  it.each([
+    ["../keluar", /menunjuk keluar|tidak valid/],
+    ["skills/../pdf", /tidak valid/],
+    ["/absolut", /tidak valid/],
+    ["skills\\docx", /tidak valid/],
+  ])("menolak subdir berbahaya: %s", async (subdir, pesan) => {
+    const fs = await seeded();
+    await put(fs, path.join(cloneDest(), "skills", "docx", "SKILL.md"), DOCX_MD);
+
+    const runner = new FakeProcessRunner();
+    runner.on("git", ["clone", "--depth", "1", URL, cloneDest()], { type: "exit", code: 0 });
+    runner.on("git", ["rev-parse", "HEAD"], { type: "exit", code: 0, stdout: `${SHA}\n` });
+
+    await expect(
+      stageFromGit(fs, DATA_ROOT, runner, { url: URL, subdir }, options),
+    ).rejects.toThrow(pesan);
+  });
 });
 describe("stageFromZip", () => {
   /** Bangun zip stored (tanpa kompresi) agar test tidak butuh dependensi. */

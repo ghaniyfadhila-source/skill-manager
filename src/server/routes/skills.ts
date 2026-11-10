@@ -104,6 +104,7 @@ const inspectSchema = z.discriminatedUnion("type", [
     type: z.literal("git"),
     url: z.string().min(1),
     ref: z.string().min(1).optional(),
+    subdir: z.string().min(1).optional(),
   }),
   z.object({ type: z.literal("zip"), path: z.string().min(1) }),
 ]);
@@ -176,7 +177,13 @@ export function registerSkillRoutes(app: Hono, deps: ServerDeps): void {
           deps.fs,
           deps.dataRoot,
           deps.runner,
-          body.ref === undefined ? { url: body.url } : { url: body.url, ref: body.ref },
+          body.ref === undefined && body.subdir === undefined
+            ? { url: body.url }
+            : {
+                url: body.url,
+                ...(body.ref === undefined ? {} : { ref: body.ref }),
+                ...(body.subdir === undefined ? {} : { subdir: body.subdir }),
+              },
         );
       } else {
         staged = await stageFromZip(deps.fs, deps.dataRoot, body.path);

@@ -117,6 +117,37 @@ describe("createApi — permintaan", () => {
     expect(bodyOf(calls[0])).toEqual({ skill: "alpha", targets: ["claude-code/global"] });
   });
 
+  it("memparsing daftar item katalog", async () => {
+    const { fetcher } = recorder(() =>
+      jsonResponse({
+        items: [
+          {
+            id: "anthropics/skills/docx",
+            name: "docx",
+            description: "Buat dokumen Word.",
+            owner: "anthropics",
+            repo: "skills",
+            subdir: "skills/docx",
+            url: "https://github.com/anthropics/skills",
+            stars: 191456,
+            installed: true,
+          },
+        ],
+      }),
+    );
+
+    const items = await createApi(fetcher).catalog();
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({
+      name: "docx",
+      owner: "anthropics",
+      subdir: "skills/docx",
+      stars: 191456,
+      installed: true,
+    });
+  });
+
   it("meng-encode nama skill pada GET /api/skills/:name", async () => {
     const { fetcher, calls } = recorder(() => jsonResponse({ skill: {} }));
 
@@ -141,6 +172,7 @@ describe("createApi — permintaan", () => {
     await api.doctor();
     await api.depsPlan({ skill: "alpha" });
     await api.depsRun({ skill: "alpha" });
+    await api.catalog();
     await api.connect("claude-code");
 
     expect(calls.map((call) => `${call.init?.method ?? "GET"} ${call.path}`)).toEqual([
@@ -156,6 +188,7 @@ describe("createApi — permintaan", () => {
       "GET /api/doctor",
       "POST /api/deps/plan",
       "POST /api/deps/run",
+      "GET /api/catalog",
       "GET /api/connect/claude-code",
     ]);
   });

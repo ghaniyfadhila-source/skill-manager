@@ -1,4 +1,5 @@
 import type {
+  CatalogItem,
   DepCommand,
   DepsRunResult,
   DoctorReport,
@@ -147,6 +148,21 @@ function normalizeCapability(value: unknown): HarnessCapability {
   return value === "managed" ? "managed" : "detected";
 }
 
+function normalizeCatalogItem(value: unknown): CatalogItem {
+  const raw = isRecord(value) ? value : {};
+  return {
+    id: String(raw.id ?? raw.name ?? ""),
+    name: String(raw.name ?? ""),
+    description: String(raw.description ?? ""),
+    owner: String(raw.owner ?? ""),
+    repo: String(raw.repo ?? ""),
+    subdir: String(raw.subdir ?? ""),
+    url: String(raw.url ?? ""),
+    stars: typeof raw.stars === "number" ? raw.stars : undefined,
+    installed: raw.installed === true,
+  };
+}
+
 function normalizeHarness(value: unknown): HarnessInfo {
   const raw = isRecord(value) ? value : {};
   const connect = isRecord(raw.connect) ? raw.connect : undefined;
@@ -198,6 +214,7 @@ export interface Api {
   installations(): Promise<InstallationView[]>;
   install(input: InstallRequest): Promise<TargetResult[]>;
   uninstall(input: UninstallRequest): Promise<TargetResult[]>;
+  catalog(): Promise<CatalogItem[]>;
   sync(input: SyncRequest): Promise<unknown>;
   doctor(): Promise<DoctorReport>;
   cleanTemp(): Promise<string[]>;
@@ -256,6 +273,11 @@ export function createApi(fetcher: Fetcher = (input, init) => globalThis.fetch(i
       return listAt<TargetResult>(
         await send(fetcher, "/api/installations", { method: "DELETE", body: input }),
         "results",
+      );
+    },
+    async catalog() {
+      return listAt<CatalogItem>(await send(fetcher, "/api/catalog"), "items").map(
+        normalizeCatalogItem,
       );
     },
     async sync(input) {

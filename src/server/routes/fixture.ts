@@ -42,13 +42,24 @@ export interface TestServer {
   request(target: string, options?: RequestOptions): Promise<Response>;
 }
 
-export function createTestServer(options: { readonly fs?: MemoryFileSystem } = {}): TestServer {
+export function createTestServer(
+  options: {
+    readonly fs?: MemoryFileSystem;
+    readonly fetch?: (url: string) => Promise<Response>;
+  } = {},
+): TestServer {
   const fs = options.fs ?? new MemoryFileSystem();
   const runner = new FakeProcessRunner();
   const app = createApp({
     token: TOKEN,
     webRoot: WEB_ROOT,
-    deps: { fs, runner, dataRoot: DATA_ROOT, home: HOME },
+    deps: {
+      fs,
+      runner,
+      dataRoot: DATA_ROOT,
+      home: HOME,
+      ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+    },
   });
 
   return {

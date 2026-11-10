@@ -20,7 +20,7 @@ import { type ImportResult, importFromDirectory } from "./import-folder.js";
 import { cloneGitTo } from "./import-git.js";
 import { extractZipTo } from "./import-zip.js";
 import { type InspectResult, inspectSource } from "./inspect.js";
-import { findSkillDirectory, readSkillName } from "./skill-source.js";
+import { findSkillDirectory, readSkillName, resolveSkillDirectory } from "./skill-source.js";
 
 /** Prefix direktori staging di dalam data root; bukan bagian dari state.json. */
 export const STAGING_DIR_NAME = "staging";
@@ -46,6 +46,8 @@ interface StagingMeta {
   readonly provenance: SourceInfo;
   readonly suggestedName: string;
   readonly createdAt: string;
+  /** Subfolder skill di dalam sumber (monorepo); kosong = autodeteksi. */
+  readonly subdir?: string;
 }
 
 export interface StagedSource {
@@ -110,6 +112,7 @@ async function finalize(
   stagingId: string,
   provenance: SourceInfo,
   options: StageOptions,
+  subdir?: string,
 ): Promise<StagedSource> {
   const suggestedName = await readSkillName(fs, skillDir);
   const inspect = await inspectSource(fs, skillDir);
@@ -117,6 +120,7 @@ async function finalize(
     provenance,
     suggestedName,
     createdAt: (options.now ?? (() => new Date().toISOString()))(),
+    ...(subdir === undefined ? {} : { subdir }),
   };
   const written = await fs.write(`${root}/${META_FILE_NAME}`, `${JSON.stringify(meta)}\n`);
   if (!written.ok) {
@@ -153,20 +157,20 @@ export async function stageFromGit(
   fs: FileSystem,
   dataRoot: string,
   runner: ProcessRunner,
-  input: { readonly url: string; readonly ref?: string },
+  input: { readonly url: string; readonly ref?: string; readonly subdir?: string },
   options: StageOptions = {},
 ): Promise<StagedSource> {
   const { stagingId, root } = await prepare(fs, dataRoot, options);
   try {
     const cloned = await cloneGitTo(runner, input, root);
-    const skillDir = await findSkillDirectory(fs, root);
+    const skillDir = await resolveSkillDirectory(fs, root, input.subdir);
     const provenance: SourceInfo = {
       type: "git",
       url: cloned.url,
       ref: cloned.ref,
       commit: cloned.commit,
     };
-    return await finalize(fs, root, skillDir, stagingId, provenance, options);
+    return await finalize(fs, root, skillDir, stagingId, provenance, options, input.subdir);
   } catch (error) {
     await fs.remove(root, { recursive: true });
     throw error;
@@ -209,7 +213,7 @@ export async function readStaged(fs: FileSystem, dataRoot: string, stagingId: st
   } catch {
     throw stagingError("staging_invalid", `Metadata staging "${stagingId}" rusak.`);
   }
-  const skillDir = await findSkillDirectory(fs, root);
+  const skillDir = await resolveSkillDirectory(fs, root, meta.subdir);
   const inspect = await inspectSource(fs, skillDir);
   return { stagingId, root, skillDir, meta, inspect };
 }
@@ -223,7 +227,7 @@ export async function importStaged(
 ): Promise<ImportResult> {
   const staged = await readStaged(fs, dataRoot, stagingId);
   try {
-    const skillDir = await findSkillDirectory(fs, staged.root);
+    const skillDir = await resolveSkillDirectory(fs, staged.root, staged.meta.subdir);
     return await importFromDirectory(fs, dataRoot, {
       sourceDir: skillDir,
       provenance: staged.meta.provenance,

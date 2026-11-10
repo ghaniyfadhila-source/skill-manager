@@ -14,6 +14,11 @@ export interface ServerDeps {
   readonly runner: ProcessRunner;
   readonly dataRoot: string;
   readonly home: string;
+  /**
+   * Fetch untuk metadata katalog (live). Opsional supaya route lain dan test
+   * lama tidak berubah; katalog jatuh ke `globalThis.fetch` bila tidak diisi.
+   */
+  readonly fetch?: (url: string) => Promise<Response>;
 }
 
 /** Bentuk badan galat yang dijanjikan kontrak §7 untuk setiap respons gagal. */

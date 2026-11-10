@@ -10,6 +10,7 @@ import { SkillManagerError } from "../core/errors.js";
 import { resolveDataRoot } from "../core/paths.js";
 import { NodeFileSystem } from "../fs/node.js";
 import { NodeProcessRunner } from "../fs/process-node.js";
+import { registerCatalogRoutes } from "./routes/catalog.js";
 import { registerConnectRoutes } from "./routes/connect.js";
 import type { ServerDeps } from "./routes/context.js";
 import { registerDepsRoutes } from "./routes/deps.js";
@@ -251,6 +252,7 @@ export function createApp(options: AppOptions): Hono {
   registerSyncRoutes(app, deps);
   registerDoctorRoutes(app, deps);
   registerDepsRoutes(app, deps);
+  registerCatalogRoutes(app, deps);
   registerConnectRoutes(app, deps);
 
   app.use("*", serveStatic({ root: options.webRoot }));

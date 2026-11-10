@@ -118,6 +118,7 @@ export interface InspectRequest {
   readonly path?: string;
   readonly url?: string;
   readonly ref?: string;
+  readonly subdir?: string;
 }
 
 /** Penanda risiko pratinjau (spec §13); bentuknya ditetapkan kontrak §7. */
@@ -156,6 +157,18 @@ export interface SyncRequest {
   readonly action: "restore" | "adopt";
   /** Wajib true; tanpa ini server menjawab 409 `confirmation_required` (AC-8). */
   readonly confirm?: boolean;
+}
+
+export interface CatalogItem {
+  readonly id: string;
+  readonly name: string;
+  readonly description: string;
+  readonly owner: string;
+  readonly repo: string;
+  readonly subdir: string;
+  readonly url: string;
+  readonly stars?: number;
+  readonly installed: boolean;
 }
 
 export interface DepsRunResult {
