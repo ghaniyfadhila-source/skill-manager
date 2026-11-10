@@ -139,7 +139,7 @@ export function ImportView({ staged, busy, error, onInspect, onImport, onReset }
 
         <button
           type="submit"
-          className="rounded bg-sky-600 px-3 py-2 text-sm font-medium disabled:opacity-50"
+          className="rounded bg-teal-600 px-3 py-2 text-sm font-medium disabled:opacity-50"
           disabled={value.trim().length === 0}
         >
           Periksa isi
@@ -230,7 +230,7 @@ function PreviewBody({
       <div className="flex gap-2">
         <button
           type="button"
-          className="rounded bg-sky-600 px-3 py-2 text-sm font-medium"
+          className="rounded bg-teal-600 px-3 py-2 text-sm font-medium"
           onClick={onImport}
         >
           {importLabel}

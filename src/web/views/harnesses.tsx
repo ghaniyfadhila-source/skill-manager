@@ -34,7 +34,7 @@ export function HarnessesView({
       type="button"
       onClick={onRecheck}
       disabled={busy}
-      className="rounded bg-sky-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-sky-400 disabled:opacity-60"
+      className="rounded bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-60"
     >
       Recheck
     </button>
@@ -100,7 +100,7 @@ export function HarnessesView({
                       href={installUrl}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="inline-block rounded border border-sky-500/60 px-3 py-1 text-sm text-sky-300 hover:bg-sky-950/60"
+                      className="inline-block rounded border border-teal-500/60 px-3 py-1 text-sm text-teal-300 hover:bg-teal-950/60"
                     >
                       Connect (buka situs resmi)
                     </a>
@@ -110,7 +110,7 @@ export function HarnessesView({
                       onClick={() => {
                         onConnect(harness.id);
                       }}
-                      className="rounded border border-sky-500/60 px-3 py-1 text-sm text-sky-300 hover:bg-sky-950/60"
+                      className="rounded border border-teal-500/60 px-3 py-1 text-sm text-teal-300 hover:bg-teal-950/60"
                     >
                       Connect (buka situs resmi)
                     </button>

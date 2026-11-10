@@ -175,3 +175,8 @@ export function Spinner({ label }: { label: string }) {
     </p>
   );
 }
+
+/** Blok skeleton untuk pengisian muat; pengganti spinner di tengah konten. */
+export function Skeleton({ className = "" }: { className?: string }) {
+  return <div aria-hidden="true" className={`animate-pulse rounded bg-slate-800 ${className}`} />;
+}

@@ -64,7 +64,7 @@ export function SkillsView({ skills, installations, harnesses, onOpen }: SkillsV
                   onClick={() => {
                     onOpen(skill.name);
                   }}
-                  className="text-left font-medium text-sky-300 underline-offset-2 hover:underline"
+                  className="text-left font-medium text-teal-300 underline-offset-2 hover:underline"
                   aria-label={`Buka detail ${skill.name}`}
                 >
                   {skill.name}

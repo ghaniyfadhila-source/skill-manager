@@ -32,7 +32,7 @@ export function MatrixView({
         </h1>
         <EmptyState title="Belum ada Target managed untuk ditampilkan.">
           Matrix butuh minimal satu harness dengan tingkat kemampuan managed. Buka halaman{" "}
-          <a href="#/harnesses" className="text-sky-300 underline">
+          <a href="#/harnesses" className="text-teal-300 underline">
             Harnesses
           </a>{" "}
           untuk melihat hasil deteksi dan menekan Recheck.
@@ -49,7 +49,7 @@ export function MatrixView({
         </h1>
         <EmptyState title="Belum ada skill untuk dipetakan.">
           Tambahkan skill lewat CLI lalu buka halaman{" "}
-          <a href="#/skills" className="text-sky-300 underline">
+          <a href="#/skills" className="text-teal-300 underline">
             Skills
           </a>
           .

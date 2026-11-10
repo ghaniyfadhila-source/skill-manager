@@ -13,7 +13,7 @@ import type {
   SkillSummary,
   TargetResult,
 } from "./types.js";
-import { ConfirmDialog, ErrorBanner, Spinner } from "./ui.js";
+import { ConfirmDialog, ErrorBanner, Skeleton } from "./ui.js";
 import { CatalogView } from "./views/catalog.js";
 import { SkillDetailView } from "./views/detail.js";
 import { DoctorView } from "./views/doctor.js";
@@ -56,14 +56,21 @@ function describeResults(results: readonly TargetResult[], verb: string): string
     .join(" · ");
 }
 
-const NAV: readonly { readonly href: string; readonly label: string; readonly view: string }[] = [
-  { href: "#/skills", label: "Skills", view: "skills" },
-  { href: "#/import", label: "Impor", view: "import" },
-  { href: "#/catalog", label: "Katalog", view: "catalog" },
-  { href: "#/matrix", label: "Matrix", view: "matrix" },
-  { href: "#/harnesses", label: "Harnesses", view: "harnesses" },
-  { href: "#/doctor", label: "Doctor", view: "doctor" },
+const NAV: readonly {
+  readonly href: string;
+  readonly label: string;
+  readonly view: string;
+  readonly group: string;
+}[] = [
+  { href: "#/skills", label: "Skills", view: "skills", group: "Library" },
+  { href: "#/import", label: "Impor", view: "import", group: "Library" },
+  { href: "#/catalog", label: "Katalog", view: "catalog", group: "Library" },
+  { href: "#/matrix", label: "Matrix", view: "matrix", group: "Pemasangan" },
+  { href: "#/harnesses", label: "Harnesses", view: "harnesses", group: "Pemasangan" },
+  { href: "#/doctor", label: "Doctor", view: "doctor", group: "Perawatan" },
 ];
+
+const NAV_GROUPS: readonly string[] = ["Library", "Pemasangan", "Perawatan"];
 
 export function App() {
   const route = useRoute();
@@ -479,174 +486,190 @@ export function App() {
   const activeView = route.view === "detail" ? "skills" : route.view;
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 p-6">
-      <header className="space-y-3">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-sky-400">
-              Skill Manager
-            </p>
-            <p className="text-xs text-slate-500">Lokal — hanya 127.0.0.1, sesi cookie wajib</p>
-          </div>
+    <div className="min-h-screen lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]">
+      <aside className="flex flex-col border-b border-slate-800 bg-slate-900/40 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r">
+        <div className="px-4 py-4 lg:px-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.3em] text-teal-400">
+            Skill Manager
+          </p>
+          <p className="mt-1 text-xs text-slate-500">Lokal — hanya 127.0.0.1, sesi cookie wajib</p>
+        </div>
+        <nav aria-label="Navigasi utama" className="px-3 pb-2 lg:px-4">
+          <ul className="flex gap-1 overflow-x-auto lg:flex-col lg:gap-5 lg:overflow-visible">
+            {NAV_GROUPS.map((group) => (
+              <li key={group} className="flex-shrink-0">
+                <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 lg:block">
+                  {group}
+                </p>
+                <ul className="flex gap-1 lg:flex-col lg:gap-0.5">
+                  {NAV.filter((item) => item.group === group).map((item) => (
+                    <li key={item.href}>
+                      <a
+                        href={item.href}
+                        aria-current={activeView === item.view ? "page" : undefined}
+                        className={`flex items-center whitespace-nowrap border-l-2 px-3 py-2 text-sm transition-colors ${
+                          activeView === item.view
+                            ? "border-teal-400 bg-teal-500/10 text-teal-200"
+                            : "border-transparent text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+                        }`}
+                      >
+                        {item.label}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="mt-auto border-t border-slate-800 px-4 py-4 lg:px-6">
           <button
             type="button"
             onClick={() => {
               void reload();
             }}
-            className="rounded border border-slate-600 px-3 py-1 text-sm hover:bg-slate-800"
+            className="w-full rounded border border-slate-600 px-3 py-1.5 text-sm hover:bg-slate-800"
           >
             Muat ulang data
           </button>
         </div>
-        <nav aria-label="Navigasi utama">
-          <ul className="flex flex-wrap gap-2">
-            {NAV.map((item) => (
-              <li key={item.href}>
-                <a
-                  href={item.href}
-                  aria-current={activeView === item.view ? "page" : undefined}
-                  className={`inline-block rounded-full border px-3 py-1 text-sm ${
-                    activeView === item.view
-                      ? "border-sky-400 bg-sky-950 text-sky-200"
-                      : "border-slate-700 text-slate-300 hover:bg-slate-800"
-                  }`}
-                >
-                  {item.label}
-                </a>
-              </li>
-            ))}
-          </ul>
-        </nav>
-      </header>
+      </aside>
 
-      {error !== null && (
-        <ErrorBanner
-          title="Ada yang gagal"
-          message={error.message}
-          code={error.code}
-          onRetry={() => {
-            void reload();
-          }}
-        />
-      )}
+      <div className="mx-auto w-full max-w-5xl space-y-6 p-6">
+        {error !== null && (
+          <ErrorBanner
+            title="Ada yang gagal"
+            message={error.message}
+            code={error.code}
+            onRetry={() => {
+              void reload();
+            }}
+          />
+        )}
 
-      {notice !== null && (
-        <p role="status" className="rounded border border-slate-700 bg-slate-900/60 p-3 text-sm">
-          {notice}
-        </p>
-      )}
+        {notice !== null && (
+          <p role="status" className="rounded border border-slate-700 bg-slate-900/60 p-3 text-sm">
+            {notice}
+          </p>
+        )}
 
-      {loading ? (
-        <Spinner label="Memuat Library, installation, dan harness…" />
-      ) : (
-        <main>
-          {route.view === "skills" && (
-            <SkillsView
-              skills={skills}
-              installations={installations}
-              harnesses={harnesses}
-              onOpen={(name) => {
-                window.location.hash = `#/skills/${encodeURIComponent(name)}`;
-              }}
-            />
-          )}
-          {route.view === "import" && (
-            <ImportView
-              staged={staged}
-              busy={busy === "inspect"}
-              error={importError}
-              onInspect={(input) => {
-                void inspectSource(input);
-              }}
-              onImport={() => {
-                void importStaged();
-              }}
-              onReset={() => {
-                setStaged(null);
-                setImportError(null);
-              }}
-            />
-          )}
-          {route.view === "catalog" && (
-            <CatalogView
-              items={catalog}
-              harnesses={harnesses}
-              loading={catalogLoading}
-              error={catalogError}
-              busyKey={busy}
-              onInstall={(item, targetId) => {
-                void installFromCatalog(item, targetId);
-              }}
-            />
-          )}
-          {route.view === "matrix" && (
-            <MatrixView
-              skills={skills}
-              installations={installations}
-              harnesses={harnesses}
-              busyKey={busy}
-              onToggle={(skillName, targetId, installed) => {
-                void toggle(skillName, targetId, installed);
-              }}
-            />
-          )}
-          {route.view === "harnesses" && (
-            <HarnessesView
-              harnesses={harnesses}
-              busy={busy === "recheck"}
-              onRecheck={() => {
-                void recheck();
-              }}
-              onConnect={(harnessId) => {
-                void connect(harnessId);
-              }}
-            />
-          )}
-          {route.view === "doctor" && (
-            <DoctorView
-              report={doctor ?? { missing: [], unmanaged: [], stale: [], tempDirs: [] }}
-              busy={doctorLoading || busy === "clean-temp"}
-              onRefresh={() => {
-                void loadDoctor();
-              }}
-              onCleanTemp={() => {
-                void cleanTemp();
-              }}
-            />
-          )}
-          {route.view === "detail" && (
-            <SkillDetailView
-              skill={detail}
-              name={detailName}
-              installations={installations}
-              loading={detailLoading}
-              error={detailError}
-              onBack={() => {
-                window.location.hash = "#/skills";
-              }}
-              onRunDeps={() => {
-                void runDeps();
-              }}
-              onSync={(targetId) => {
-                void syncTarget(targetId);
-              }}
-              busyTarget={busy?.startsWith("sync::") === true ? busy.slice(6) : null}
-            />
-          )}
-        </main>
-      )}
+        {loading ? (
+          <div role="status" className="space-y-3">
+            <span className="sr-only">Memuat Library, installation, dan harness…</span>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-16 w-full" />
+            <Skeleton className="h-16 w-full" />
+          </div>
+        ) : (
+          <main>
+            {route.view === "skills" && (
+              <SkillsView
+                skills={skills}
+                installations={installations}
+                harnesses={harnesses}
+                onOpen={(name) => {
+                  window.location.hash = `#/skills/${encodeURIComponent(name)}`;
+                }}
+              />
+            )}
+            {route.view === "import" && (
+              <ImportView
+                staged={staged}
+                busy={busy === "inspect"}
+                error={importError}
+                onInspect={(input) => {
+                  void inspectSource(input);
+                }}
+                onImport={() => {
+                  void importStaged();
+                }}
+                onReset={() => {
+                  setStaged(null);
+                  setImportError(null);
+                }}
+              />
+            )}
+            {route.view === "catalog" && (
+              <CatalogView
+                items={catalog}
+                harnesses={harnesses}
+                loading={catalogLoading}
+                error={catalogError}
+                busyKey={busy}
+                onInstall={(item, targetId) => {
+                  void installFromCatalog(item, targetId);
+                }}
+              />
+            )}
+            {route.view === "matrix" && (
+              <MatrixView
+                skills={skills}
+                installations={installations}
+                harnesses={harnesses}
+                busyKey={busy}
+                onToggle={(skillName, targetId, installed) => {
+                  void toggle(skillName, targetId, installed);
+                }}
+              />
+            )}
+            {route.view === "harnesses" && (
+              <HarnessesView
+                harnesses={harnesses}
+                busy={busy === "recheck"}
+                onRecheck={() => {
+                  void recheck();
+                }}
+                onConnect={(harnessId) => {
+                  void connect(harnessId);
+                }}
+              />
+            )}
+            {route.view === "doctor" && (
+              <DoctorView
+                report={doctor ?? { missing: [], unmanaged: [], stale: [], tempDirs: [] }}
+                busy={doctorLoading || busy === "clean-temp"}
+                onRefresh={() => {
+                  void loadDoctor();
+                }}
+                onCleanTemp={() => {
+                  void cleanTemp();
+                }}
+              />
+            )}
+            {route.view === "detail" && (
+              <SkillDetailView
+                skill={detail}
+                name={detailName}
+                installations={installations}
+                loading={detailLoading}
+                error={detailError}
+                onBack={() => {
+                  window.location.hash = "#/skills";
+                }}
+                onRunDeps={() => {
+                  void runDeps();
+                }}
+                onSync={(targetId) => {
+                  void syncTarget(targetId);
+                }}
+                busyTarget={busy?.startsWith("sync::") === true ? busy.slice(6) : null}
+              />
+            )}
+          </main>
+        )}
 
-      {confirm.prompt !== null && (
-        <ConfirmDialog
-          prompt={confirm.prompt}
-          onConfirm={() => {
-            confirm.answer(true);
-          }}
-          onCancel={() => {
-            confirm.answer(false);
-          }}
-        />
-      )}
+        {confirm.prompt !== null && (
+          <ConfirmDialog
+            prompt={confirm.prompt}
+            onConfirm={() => {
+              confirm.answer(true);
+            }}
+            onCancel={() => {
+              confirm.answer(false);
+            }}
+          />
+        )}
+      </div>
     </div>
   );
 }

@@ -80,7 +80,7 @@ function CatalogCard({
           onClick={() => {
             onInstall(item, target);
           }}
-          className="rounded bg-sky-600 px-3 py-1 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-50"
+          className="rounded bg-teal-600 px-3 py-1 text-sm font-medium text-white hover:bg-teal-500 disabled:opacity-50"
         >
           Pasang
         </button>
